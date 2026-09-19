@@ -265,10 +265,7 @@ SOFTWARE.
             [491441836, "sponsoredDisplay", "bytes"],
         ],
         SmartSkipButton: [[13, "controller", "SmartSkipController"]],
-        SmartSkipController: [
-            [6, "seekEducationEnabled", "bool"],
-            [8, "promoKey", "string"],
-        ],
+        SmartSkipController: [[7, "promotionMode", "bool"]],
         VideoLockup: [
             [33, "attachments", "Attachment", true],
             [34, "attachmentStateKey", "bytes"],
@@ -707,22 +704,12 @@ SOFTWARE.
     }
     function unlockJumpAhead(button) {
         const controller = button.controller;
-        if (!controller?.promoKey) return false;
-        try {
-            const key = decodeBase64(decodeURIComponent(controller.promoKey));
-            const name = wireFields(key).find((field) => field.no === 2 && field.wire === 2);
-            if (!name || !/^promo_command_entity_key_.*jump_?ahead/i.test(utf8.decode(name.data)))
-                return false;
-            // Leave server targets, eligibility windows, gestures and native
-            // seek actions intact. The native controller queries
-            // player_overlay_player_seek_edu when controller field 6 is true.
-            if (controller.seekEducationEnabled === true)
-                controller.seekEducationEnabled = false;
-            delete controller.promoKey;
-            return true;
-        } catch {
-            return false;
-        }
+        if (controller?.promotionMode !== true) return false;
+        // smart_skip_button.eml selects a promo placeholder when field 7 is
+        // true, and the client's timely_action button when false. Keep every
+        // timing, gesture, entity binding and native seek action unchanged.
+        controller.promotionMode = false;
+        return true;
     }
     // Edit a declared binary path; keep all siblings and repeated occurrences.
     function rewriteBinaryPath(bytes, path, transform) {
