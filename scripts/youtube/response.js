@@ -264,7 +264,13 @@ SOFTWARE.
             [454362329, "sponsoredVideo", "bytes"],
             [491441836, "sponsoredDisplay", "bytes"],
         ],
-        SmartSkipButton: [[13, "controller", "SmartSkipController"]],
+        SmartSkipButton: [
+            [1, "actions", "SmartSkipActions"],
+            [13, "controller", "SmartSkipController"],
+            [17, "displayLimit", "uint"],
+        ],
+        SmartSkipActions: [[3, "items", "SmartSkipAction", true]],
+        SmartSkipAction: [[9, "displayLimit", "uint"]],
         SmartSkipController: [[7, "promotionMode", "bool"]],
         VideoLockup: [
             [33, "attachments", "Attachment", true],
@@ -703,13 +709,24 @@ SOFTWARE.
         return changed;
     }
     function unlockJumpAhead(button) {
+        let changed = false;
         const controller = button.controller;
-        if (controller?.promotionMode !== true) return false;
         // smart_skip_button.eml selects a promo placeholder when field 7 is
         // true, and the client's timely_action button when false. Keep every
         // timing, gesture, entity binding and native seek action unchanged.
-        controller.promotionMode = false;
-        return true;
+        if (controller?.promotionMode === true) {
+            controller.promotionMode = false;
+            changed = true;
+        }
+        // The client checks both total and per-action display counters. Use
+        // YouTube's existing unlimited sentinel without resetting client state.
+        if (button.actions?.items?.length)
+            for (const target of [button, ...button.actions.items]) {
+                if (target.displayLimit === 0x7fffffff) continue;
+                target.displayLimit = 0x7fffffff;
+                changed = true;
+            }
+        return changed;
     }
     // Edit a declared binary path; keep all siblings and repeated occurrences.
     function rewriteBinaryPath(bytes, path, transform) {
