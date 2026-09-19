@@ -1,5 +1,5 @@
 #!name=YouTube Enhance
-#!desc=Remove YouTube ads, enable background playback/PiP, and force highest quality. Maasea-derived code: Apache-2.0.
+#!desc=Remove YouTube ads, enable background playback/PiP and up to 4x speed, and force highest quality. Maasea-derived code: Apache-2.0.
 #!arguments=block_upload:true,block_shorts:false,auto_hd:true,block_games:true,block_vertical_live:false
 #!arguments-desc=block_upload: hide Uploads; block_shorts: hide Shorts; auto_hd: force highest available quality. block_games: hide YouTube Playables. block_vertical_live: hide vertical-live recommendations (all layouts).
 #!requirement=SYSTEM = 'iOS'

@@ -304,6 +304,7 @@ SOFTWARE.
         NextResult: [[1, "content", "BrowseContent"]],
         PlayerOverlays: [[78882851, "renderer", "PlayerOverlayRenderer"]],
         PlayerOverlayRenderer: [
+            [2, "overflowMenu", "bytes"],
             [3, "related", "RelatedOverlay"],
             [42, "overlayCollections", "OverlayCollection", true],
         ],
@@ -316,12 +317,18 @@ SOFTWARE.
         RelatedOverlay: [[29209665, "contents", "RelatedOverlayContents"]],
         RelatedOverlayContents: [[2, "contents", "RichItemContent", true]],
         Player: [
+            [15, "playerConfig", "PlayerConfig"],
             [60, "overlayCollections", "OverlayCollection", true],
             [61, "paidPromotion", "bytes"],
             [7, "adPlacements", "bytes", true],
             [2, "playabilityStatus", "PlayabilityStatus"],
             [9, "playbackTracking", "PlaybackTracking"],
             [68, "adSlots", "bytes", true],
+        ],
+        PlayerConfig: [[1, "granularVariableSpeedConfig", "PlaybackSpeedConfig"]],
+        PlaybackSpeedConfig: [
+            [1, "minimumPlaybackRate", "uint"],
+            [2, "maximumPlaybackRate", "uint"],
         ],
         PlayabilityStatus: [
             [21, "pictureInPictureRender", "PictureInPictureSupportedRenderer"],
@@ -603,6 +610,16 @@ SOFTWARE.
     }
     function removeFeedAds(message, { blockGames = true, blockVerticalLive = false } = {}) {
         let changed = false;
+        const overlay = message.playerOverlays?.renderer;
+        if (overlay?.overflowMenu) {
+            try {
+                const menu = unlockSpeedMenu(overlay.overflowMenu);
+                changed = !sameBytes(menu, overlay.overflowMenu);
+                overlay.overflowMenu = menu;
+            } catch (error) {
+                console.log("YouTube speed menu: " + error);
+            }
+        }
         const emptied = new WeakSet();
         visitObjects(message, (object) => {
             for (const field of ["richItemContents", "overlays"]) {
@@ -680,11 +697,53 @@ SOFTWARE.
         prune(message);
         return changed;
     }
+    // Edit a declared binary path; keep all siblings and repeated occurrences.
+    function rewriteBinaryPath(bytes, path, transform) {
+        if (!path.length) return transform(bytes);
+        let changed = false;
+        const chunks = wireFields(bytes).map((field) => {
+            if (field.no !== path[0] || field.wire !== 2) return field.raw;
+            const data = rewriteBinaryPath(field.data, path.slice(1), transform);
+            if (sameBytes(data, field.data)) return field.raw;
+            changed = true;
+            return encodeField([field.no, "", "bytes"], data);
+        });
+        return changed ? concatBytesLocal(chunks) : bytes;
+    }
+    function unlockSpeedMenu(bytes) {
+        const upsell = textEncoder.encode("PApremium_upsell");
+        // Overflow item → inline panel → playback-rate selector model (1602).
+        return rewriteBinaryPath(bytes, [
+            66439850, 1, 153515154, 172660663, 1, 168777401, 5, 407694004,
+            4, 4, 170382688, 1, 169495254, 443434441, 1, 1, 441573002,
+            4, 153515154, 172660663, 1, 168777401, 5, 413471385, 1, 1602,
+        ], (selector) => {
+            const fields = wireFields(selector);
+            const maximum = fields.find((field) => field.no === 5 && field.wire === 5);
+            if (!maximum) return selector;
+            const rate = new DataView(maximum.data.buffer, maximum.data.byteOffset, 4).getFloat32(0, true);
+            if (!(rate > 0)) return selector; // Keep disabled/live controls disabled.
+            const limit = new Uint8Array(4);
+            new DataView(limit.buffer).setFloat32(0, Math.max(4, rate), true);
+            const expanded = concatBytesLocal(fields.map((field) =>
+                field === maximum ? concatBytesLocal([varint(45), limit]) : field.raw));
+            // Presets already contain the real rate action; field 3 overrides it
+            // with the Premium panel. Remove only that preset-specific override.
+            return rewriteBinaryPath(expanded, [10, 1674], (preset) =>
+                concatBytesLocal(wireFields(preset)
+                    .filter((field) => field.no !== 3 || field.wire !== 2 ||
+                        !containsMarker(field.data, upsell))
+                    .map((field) => field.raw)));
+        });
+    }
     function enhancePlayer(player, parameters) {
         removeFeedAds(player, parameters);
         delete player.paidPromotion;
         player.adPlacements = [];
         player.adSlots = [];
+        const speed = player.playerConfig?.granularVariableSpeedConfig;
+        if (speed?.maximumPlaybackRate > 0)
+            speed.maximumPlaybackRate = Math.max(400, speed.maximumPlaybackRate);
         if (player.playbackTracking)
             delete player.playbackTracking.pageadViewthroughconversion;
         const status = player.playabilityStatus;
