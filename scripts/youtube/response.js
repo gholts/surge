@@ -259,9 +259,15 @@ SOFTWARE.
         VideoInfo: [[168777401, "videoContext", "VideoContext"]],
         VideoContext: [[5, "videoContent", "VideoContent"]],
         VideoContent: [
+            [512694658, "smartSkipButton", "SmartSkipButton"],
             [232954548, "videoLockup", "VideoLockup"],
             [454362329, "sponsoredVideo", "bytes"],
             [491441836, "sponsoredDisplay", "bytes"],
+        ],
+        SmartSkipButton: [[13, "controller", "SmartSkipController"]],
+        SmartSkipController: [
+            [6, "seekEducationEnabled", "bool"],
+            [8, "promoKey", "string"],
         ],
         VideoLockup: [
             [33, "attachments", "Attachment", true],
@@ -608,7 +614,7 @@ SOFTWARE.
         });
         return ad;
     }
-    function removeFeedAds(message, { blockGames = true, blockVerticalLive = false } = {}) {
+    function removeFeedAds(message, { blockGames = true, blockVerticalLive = false, jumpAhead = true } = {}) {
         let changed = false;
         const overlay = message.playerOverlays?.renderer;
         if (overlay?.overflowMenu) {
@@ -622,6 +628,8 @@ SOFTWARE.
         }
         const emptied = new WeakSet();
         visitObjects(message, (object) => {
+            if (jumpAhead && object.smartSkipButton)
+                changed = unlockJumpAhead(object.smartSkipButton) || changed;
             for (const field of ["richItemContents", "overlays"]) {
                 if (!Array.isArray(object[field])) continue;
                 const keep = object[field].filter(
@@ -696,6 +704,25 @@ SOFTWARE.
         }
         prune(message);
         return changed;
+    }
+    function unlockJumpAhead(button) {
+        const controller = button.controller;
+        if (!controller?.promoKey) return false;
+        try {
+            const key = decodeBase64(decodeURIComponent(controller.promoKey));
+            const name = wireFields(key).find((field) => field.no === 2 && field.wire === 2);
+            if (!name || !/^promo_command_entity_key_.*jump_?ahead/i.test(utf8.decode(name.data)))
+                return false;
+            // Leave server targets, eligibility windows, gestures and native
+            // seek actions intact. The native controller queries
+            // player_overlay_player_seek_edu when controller field 6 is true.
+            if (controller.seekEducationEnabled === true)
+                controller.seekEducationEnabled = false;
+            delete controller.promoKey;
+            return true;
+        } catch {
+            return false;
+        }
     }
     // Edit a declared binary path; keep all siblings and repeated occurrences.
     function rewriteBinaryPath(bytes, path, transform) {
