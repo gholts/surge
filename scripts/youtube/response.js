@@ -70,6 +70,8 @@ SOFTWARE.
                 blockUpload: true,
                 blockShorts: false,
             });
+            if (options.autoHd !== false)
+                cacheQuality(responsePlayers(type, message));
             $done(
                 transform(message, options)
                     ? { body: messageCodec.toBinary(message) }
@@ -90,13 +92,13 @@ SOFTWARE.
                 throw new Error("YouTubeConfig requires stored clientKey");
             if (!$response.body) throw new Error("YouTubeConfig requires body");
             const options = readOptions({ blockGames: true });
-            $done({
-                body: transformUmp(
-                    $response.body,
-                    decodeBase64(clientKey),
-                    options,
-                ),
-            });
+            const result = transformUmp(
+                $response.body,
+                decodeBase64(clientKey),
+                options,
+            );
+            if (options.autoHd !== false) cacheQuality(result.players);
+            $done({ body: result.body });
         } catch (error) {
             console.log(String(error));
             clearKeys(platform);
@@ -109,6 +111,7 @@ SOFTWARE.
     }
 
     const CONFIG_KEY = "YouTubeConfig";
+    const QUALITY_KEY = "YouTubeQuality";
 
     function readOptions(defaults = {}) {
         return typeof $argument === "string" && !$argument.includes("{{{")
@@ -123,15 +126,15 @@ SOFTWARE.
             ? "youtubeMusic"
             : "youtube";
     }
-    function readConfig() {
+    function readConfig(key = CONFIG_KEY) {
         try {
-            return JSON.parse($persistentStore.read(CONFIG_KEY) || "{}");
+            return JSON.parse($persistentStore.read(key) || "{}");
         } catch {
             return {};
         }
     }
-    function writeConfig(config) {
-        $persistentStore.write(JSON.stringify(config), CONFIG_KEY);
+    function writeConfig(config, key = CONFIG_KEY) {
+        $persistentStore.write(JSON.stringify(config), key);
     }
     function clearKeys(platform) {
         const config = readConfig();
@@ -154,6 +157,96 @@ SOFTWARE.
         if (JSON.stringify(config[platform]) !== JSON.stringify(value)) {
             config[platform] = value;
             writeConfig(config);
+        }
+    }
+
+    function responsePlayers(type, message) {
+        if (type === "Player") return [message];
+        if (type === "Watch")
+            return message.contents
+                .map((content) => content.player)
+                .filter(Boolean);
+        if (type === "ResolveUrl") {
+            const player = message.endpoint?.watch?.embedded?.response?.player;
+            return player ? [player] : [];
+        }
+        return [];
+    }
+    function cacheQuality(players) {
+        if (!players.length) return;
+        const stored = readConfig(QUALITY_KEY);
+        const cache = Object.assign(
+            Object.create(null),
+            stored && typeof stored === "object" && !Array.isArray(stored)
+                ? stored
+                : {},
+        );
+        let changed = false;
+        for (const player of players) {
+            try {
+                const streaming = unknownFields(player).find(
+                    (field) => field.no === 4 && field.wire === 2,
+                );
+                if (!streaming) continue;
+                const fields = wireFields(streaming.data);
+                const url = fields.find(
+                    (field) => field.no === 15 && field.wire === 2,
+                );
+                const match =
+                    url && /[?&]id=([^&]+)/.exec(utf8.decode(url.data));
+                if (!match) continue;
+                const id = decodeURIComponent(match[1]),
+                    quality = { height: 0, itags: [] };
+                for (const field of fields) {
+                    if (field.no !== 3 || field.wire !== 2) continue;
+                    const format = wireFields(field.data);
+                    const mime = format.find(
+                        (field) => field.no === 5 && field.wire === 2,
+                    );
+                    if (!mime || !utf8.decode(mime.data).startsWith("video/"))
+                        continue;
+                    const value = (no) => {
+                        const field = format.find(
+                            (field) => field.no === no && field.wire === 0,
+                        );
+                        return field ? numberValue(field.data) : 0;
+                    };
+                    const height = Math.min(value(7), value(8)),
+                        itag = value(1);
+                    if (
+                        !itag ||
+                        !height ||
+                        height > 0x7fffffff ||
+                        height < quality.height
+                    )
+                        continue;
+                    if (height > quality.height) {
+                        quality.height = height;
+                        quality.itags = [];
+                    }
+                    if (!quality.itags.includes(itag)) quality.itags.push(itag);
+                }
+                if (
+                    !quality.height ||
+                    JSON.stringify(cache[id]) === JSON.stringify(quality)
+                )
+                    continue;
+                delete cache[id];
+                cache[id] = quality;
+                changed = true;
+            } catch (error) {
+                console.log("YouTube quality metadata: " + error);
+            }
+        }
+        if (changed) {
+            const keys = Object.keys(cache);
+            for (const key of keys.slice(0, Math.max(0, keys.length - 16)))
+                delete cache[key];
+            try {
+                writeConfig(cache, QUALITY_KEY);
+            } catch (error) {
+                console.log("YouTube quality cache: " + error);
+            }
         }
     }
 
@@ -794,7 +887,7 @@ SOFTWARE.
     function varint(value) {
         const bytes = [];
         do {
-            bytes.push((value % 128) | (value > 127 ? 128 : 0));
+            bytes.push(value % 128 | (value > 127 ? 128 : 0));
             value = Math.floor(value / 128);
         } while (value);
         return new Uint8Array(bytes);
@@ -1130,6 +1223,7 @@ SOFTWARE.
         const contentCodec = codec("OnesieInnertubeResponse");
         const reader = new UmpReader(body),
             writer = new UmpWriter(body.length);
+        const players = [];
         let rewriteNextPart = false;
         function rewritePayload(bytes) {
             const part = envelopeCodec.fromBinary(bytes);
@@ -1141,6 +1235,8 @@ SOFTWARE.
                 throw new Error("Invalid UMP gzip payload");
             const plaintext = gzipped ? gunzipSync(decrypted) : decrypted;
             const content = contentCodec.fromBinary(plaintext);
+            for (const item of content.contents)
+                if (item.player) players.push(item.player);
             transformWatch(content, options);
             const output = contentCodec.toBinary(content);
             if (sameBytes(output, plaintext)) return bytes;
@@ -1163,7 +1259,7 @@ SOFTWARE.
             }
             writer.writePart(part);
         }
-        return writer.finish();
+        return { body: writer.finish(), players };
     }
 
     // 6. Vendored fflate / noble primitives. Initialized only for UMP traffic.
@@ -1355,6 +1451,7 @@ SOFTWARE.
                                         clm = hMap(clt, clb, 1),
                                         i = 0;
                                     i < tl;
+
                                 ) {
                                     var r = clm[bits(dat, pos, clbmsk)];
                                     pos += r & 15;
@@ -1378,6 +1475,7 @@ SOFTWARE.
                                                         bits(dat, pos, 127)),
                                                     (pos += 7));
                                             n--;
+
                                         )
                                             ldt[i++] = c;
                                     }
@@ -1508,7 +1606,7 @@ SOFTWARE.
                     i0 = 0,
                     i1 = 1,
                     i2 = 2;
-                for (t[0] = { s: -1, f: l.f + r.f, l, r }; i1 != s - 1;)
+                for (t[0] = { s: -1, f: l.f + r.f, l, r }; i1 != s - 1; )
                     ((l = t[t[i0].f < t[i2].f ? i0++ : i2++]),
                         (r = t[i0 != i1 && t[i0].f < t[i2].f ? i0++ : i2++]),
                         (t[i1++] = { s: -1, f: l.f + r.f, l, r }));
@@ -1534,7 +1632,7 @@ SOFTWARE.
                                 (tr2[i2_1] = mb));
                         else break;
                     }
-                    for (dt2 >>= lft; dt2 > 0;) {
+                    for (dt2 >>= lft; dt2 > 0; ) {
                         var i2_2 = t2[i].s;
                         tr2[i2_2] < mb
                             ? (dt2 -= 1 << (mb - tr2[i2_2]++ - 1))
@@ -1554,7 +1652,7 @@ SOFTWARE.
                     : (l[n.s] = d2);
             },
             lc = function (c) {
-                for (var s = c.length; s && !c[--s];);
+                for (var s = c.length; s && !c[--s]; );
                 for (
                     var cl = new u16(++s),
                         cli = 0,
@@ -1582,7 +1680,7 @@ SOFTWARE.
                             for (w(cln), --cls; cls > 6; cls -= 6) w(8304);
                             cls > 2 && (w(((cls - 3) << 5) | 8208), (cls = 0));
                         }
-                        for (; cls--;) w(cln);
+                        for (; cls--; ) w(cln);
                         ((cls = 1), (cln = c[i]));
                     }
                 return { c: cl.subarray(0, cli), n: s };
@@ -1789,6 +1887,7 @@ SOFTWARE.
                                         maxd = Math.min(32767, i),
                                         ml2 = Math.min(258, rem);
                                     dif <= maxd && --ch_1 && imod != pimod;
+
                                 ) {
                                     if (dat[i + l] == dat[i + l - dif]) {
                                         for (
@@ -1870,7 +1969,7 @@ SOFTWARE.
             },
             crct = /* @__PURE__ */ (function () {
                 for (var t = new Int32Array(256), i = 0; i < 256; ++i) {
-                    for (var c = i, k = 9; --k;)
+                    for (var c = i, k = 9; --k; )
                         c = (c & 1 && -306674912) ^ (c >>> 1);
                     t[i] = c;
                 }
@@ -2498,7 +2597,7 @@ SOFTWARE.
                     (aexists(this), (data = toBytes(data)), abytes2(data));
                     let { view, buffer, blockLen } = this,
                         len = data.length;
-                    for (let pos = 0; pos < len;) {
+                    for (let pos = 0; pos < len; ) {
                         let take = Math.min(blockLen - this.pos, len - pos);
                         if (take === blockLen) {
                             let dataView = createView2(data);

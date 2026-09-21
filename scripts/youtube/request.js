@@ -1,6 +1,7 @@
 // YouTube request runtime: block ad breaks, negotiate keys, prefer maximum quality.
 (() => {
     const CONFIG_KEY = "YouTubeConfig";
+    const QUALITY_KEY = "YouTubeQuality";
 
     // 1. Surge dispatch. Request handlers return a result; only main calls $done.
     function main() {
@@ -20,7 +21,9 @@
                     $request.body instanceof Uint8Array &&
                     $request.body.length
                 )
-                    result = { body: forceHighestQuality($request.body) };
+                    result = {
+                        body: forceHighestQuality($request.body, $request.url),
+                    };
             }
             $done(result);
         } catch (error) {
@@ -59,12 +62,24 @@
     }
 
     // 2. Auto HD: edit only SABR quality preferences; preserve every other field.
-    function setQuality(bytes) {
-        // SABR ClientAbrState: highest resolution ceiling, high-quality preference.
-        const values = new Map([
-                [16, 4320],
-                [26, 1],
-            ]),
+    function setQuality(bytes, quality) {
+        // A fresh manual selection plus sticky resolution prevents ABR downgrades.
+        // Without a matching catalogue, retain the higher-quality preference.
+        const values = new Map(
+                quality
+                    ? [
+                          [13, 0],
+                          [14, 2],
+                          [16, quality.height],
+                          [21, quality.height],
+                          [26, 3],
+                          [30, 0],
+                      ]
+                    : [
+                          [16, 4320],
+                          [26, 1],
+                      ],
+            ),
             seen = new Set(),
             chunks = [];
         for (const field of wireFields(bytes)) {
@@ -77,20 +92,70 @@
             if (!seen.has(no)) chunks.push(varint(no * 8), varint(value));
         return concatBytes(chunks);
     }
-    function forceHighestQuality(bytes) {
+    function selectQuality(fields, url) {
+        try {
+            const match = /[?&]id=([^&]+)/.exec(url);
+            if (!match) return;
+            const quality =
+                readConfig(QUALITY_KEY)?.[decodeURIComponent(match[1])];
+            if (
+                !Number.isInteger(quality?.height) ||
+                quality.height <= 0 ||
+                quality.height > 0x7fffffff ||
+                !Array.isArray(quality.itags)
+            )
+                return;
+            const config = fields.find(
+                (field) => field.no === 5 && field.wire === 2,
+            );
+            const signed = config && bytesField(config.data, 1);
+            if (!signed) return;
+            // Copy complete IDs from this request's allowed list; never invent an
+            // itag, timestamp, tag or authorization, nor modify the signed config.
+            const formats = wireFields(signed)
+                .filter((field) => {
+                    if (field.no !== 6 || field.wire !== 2) return false;
+                    const itag = wireFields(field.data).find(
+                        (field) => field.no === 1 && field.wire === 0,
+                    );
+                    if (!itag) return false;
+                    let value = 0,
+                        scale = 1;
+                    for (const byte of itag.data) {
+                        value += (byte & 127) * scale;
+                        scale *= 128;
+                    }
+                    return quality.itags.includes(value);
+                })
+                .map((field) => field.data);
+            return formats.length
+                ? { height: quality.height, formats }
+                : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+    function forceHighestQuality(bytes, url) {
+        const fields = wireFields(bytes),
+            quality = selectQuality(fields, url);
         const chunks = [];
         let found = false;
-        for (const field of wireFields(bytes)) {
+        for (const field of fields) {
             if (field.no === 1 && field.wire === 2) {
-                const quality = setQuality(field.data);
-                chunks.push(varint(10), varint(quality.length), quality);
+                const state = setQuality(field.data, quality);
+                chunks.push(varint(10), varint(state.length), state);
                 found = true;
+            } else if (quality && field.no === 17 && field.wire === 2) {
+                continue;
             } else chunks.push(field.raw);
         }
         if (!found) {
-            const quality = setQuality(new Uint8Array());
-            chunks.push(varint(10), varint(quality.length), quality);
+            const state = setQuality(new Uint8Array(), quality);
+            chunks.push(varint(10), varint(state.length), state);
         }
+        if (quality)
+            for (const format of quality.formats)
+                chunks.push(varint(17 * 8 + 2), varint(format.length), format);
         return concatBytes(chunks);
     }
 
@@ -108,9 +173,9 @@
             ? "youtubeMusic"
             : "youtube";
     }
-    function readConfig() {
+    function readConfig(key = CONFIG_KEY) {
         try {
-            return JSON.parse($persistentStore.read(CONFIG_KEY) || "{}");
+            return JSON.parse($persistentStore.read(key) || "{}");
         } catch {
             return {};
         }
@@ -150,7 +215,7 @@
     function varint(value) {
         const bytes = [];
         do {
-            bytes.push((value % 128) | (value > 127 ? 128 : 0));
+            bytes.push(value % 128 | (value > 127 ? 128 : 0));
             value = Math.floor(value / 128);
         } while (value);
         return new Uint8Array(bytes);
