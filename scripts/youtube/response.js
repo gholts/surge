@@ -257,13 +257,20 @@ SOFTWARE.
             [2, "renderInfo", "RenderInfo"],
         ],
         VideoInfo: [[168777401, "videoContext", "VideoContext"]],
-        VideoContext: [[5, "videoContent", "VideoContent"]],
+        VideoContext: [
+            [3, "layout", "ElementLayout"],
+            [5, "videoContent", "VideoContent"],
+        ],
+        ElementLayout: [[172035250, "layoutRender", "LayoutRender"]],
         VideoContent: [
+            [413471385, "element", "ElementModel"],
             [512694658, "smartSkipButton", "SmartSkipButton"],
             [232954548, "videoLockup", "VideoLockup"],
             [454362329, "sponsoredVideo", "bytes"],
             [491441836, "sponsoredDisplay", "bytes"],
         ],
+        ElementModel: [[1, "data", "ElementData"]],
+        ElementData: [[1829, "shoppingShelf", "bytes"]],
         SmartSkipButton: [
             [1, "actions", "SmartSkipActions"],
             [13, "controller", "SmartSkipController"],
@@ -546,8 +553,9 @@ SOFTWARE.
         "full_width_portrait_image_layout.eml-fe",
         "full_width_square_image_layout.eml-fe",
         "video_display_full_buttoned_layout.eml-fe",
-        "shopping_description_shelf.eml-fe",
     ]);
+    // Match active shopping components, not product words in titles or URLs.
+    const SHOPPING_LAYOUT = /^(?:shopping_|products?_in_video_)[a-z0-9_]+\.eml(?:-js)?(?:-fe)?$/;
     const AD_TRACKING = textEncoder.encode("/pagead/");
     const GAME_CARD = textEncoder.encode("mini_game_card.eml");
     const LIVE_BADGE = textEncoder.encode("youtube_outline_experimental/live_24pt");
@@ -593,6 +601,8 @@ SOFTWARE.
             const layout = object.layoutRender?.eml?.split("|")[0];
             if (
                 AD_LAYOUTS.has(layout) ||
+                SHOPPING_LAYOUT.test(layout ?? "") ||
+                object.shoppingShelf ||
                 object.sponsoredVideo ||
                 object.sponsoredDisplay ||
                 (blockVerticalLive && object.videoLockup && hasVerticalLiveTarget(object.videoLockup))
@@ -631,6 +641,9 @@ SOFTWARE.
         }
         const emptied = new WeakSet();
         visitObjects(message, (object) => {
+            const layout = object.renderInfo?.layoutRender?.eml?.split("|")[0];
+            if (AD_LAYOUTS.has(layout) || SHOPPING_LAYOUT.test(layout ?? ""))
+                emptied.add(object);
             if (jumpAhead && object.smartSkipButton)
                 changed = unlockJumpAhead(object.smartSkipButton) || changed;
             for (const field of ["richItemContents", "overlays"]) {
