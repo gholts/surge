@@ -1,7 +1,7 @@
 #!name=YouTube Enhance
 #!desc=Remove YouTube ads, enable background playback/PiP and up to 4x speed, and force highest quality. Maasea-derived code: Apache-2.0.
 #!arguments=block_upload:true,block_shorts:false,auto_hd:true,block_games:true,block_vertical_live:false,jump_ahead:true
-#!arguments-desc=block_upload: hide Uploads; block_shorts: hide Shorts; auto_hd: force highest available quality. block_games: hide YouTube Playables. block_vertical_live: hide vertical-live recommendations (all layouts). jump_ahead: enable native Jump Ahead without its promotion.
+#!arguments-desc=block_upload: Hide the Uploads entry from YouTube navigation.\nblock_shorts: Hide the Shorts entry from YouTube navigation.\nauto_hd: Prefer the highest available video quality and prevent automatic downgrades.\nblock_games: Hide YouTube Playables recommendations.\nblock_vertical_live: Hide vertical live recommendations across YouTube layouts.\njump_ahead: Enable YouTube's native Jump Ahead button without its promotion.
 #!requirement=SYSTEM = 'iOS'
 
 [Script]
