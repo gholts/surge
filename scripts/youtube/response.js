@@ -264,6 +264,8 @@ SOFTWARE.
         /^(?:shopping_|products?_in_video_)[a-z0-9_]+\.eml(?:-js)?(?:-fe)?$/;
     const AD_TRACKING = textEncoder.encode("/pagead/");
     const GAME_CARD = textEncoder.encode("mini_game_card.eml");
+    const STORE_CARD = textEncoder.encode("shopping_item_card_list.eml");
+    const STORE_TAB = textEncoder.encode("store");
     const LIVE_BADGE = textEncoder.encode(
         "youtube_outline_experimental/live_24pt",
     );
@@ -309,14 +311,27 @@ SOFTWARE.
             return false;
         }
     }
-    function isBlockedItem(item, blockGames, blockVerticalLive) {
+    function isStoreTab(item) {
+        const params = item.tabRenderer?.endpoint?.browse?.params;
+        if (!params) return false;
+        try {
+            const target = wireFields(
+                decodeBase64(decodeURIComponent(params)),
+            ).find((field) => field.no === 2 && field.wire === 2);
+            return !!target && sameBytes(target.data, STORE_TAB);
+        } catch {
+            return false;
+        }
+    }
+    function isBlockedItem(item, blockGames, blockVerticalLive, blockStore) {
         let ad = false;
         visitObjects(item, (object) => {
             const layout = object.layoutRender?.eml?.split("|")[0];
             if (
                 AD_LAYOUTS.has(layout) ||
-                SHOPPING_LAYOUT.test(layout ?? "") ||
-                object.shoppingShelf ||
+                (blockStore &&
+                    (SHOPPING_LAYOUT.test(layout ?? "") ||
+                        object.shoppingShelf)) ||
                 object.sponsoredVideo ||
                 object.sponsoredDisplay ||
                 (blockVerticalLive &&
@@ -329,14 +344,16 @@ SOFTWARE.
                     (field) =>
                         field.wire === 2 &&
                         (containsMarker(field.data) ||
-                            field.no === 400157044 || // Product overlay.
+                            (blockStore && field.no === 400157044) || // Product overlay.
                             field.no === 455507059 || // Paid-promotion overlay.
                             (blockVerticalLive &&
                                 field.no === 519005951 &&
                                 containsMarker(field.data, LIVE_BADGE)) ||
-                            (blockGames &&
-                                field.no === 312131490 &&
-                                containsMarker(field.data, GAME_CARD))),
+                            (field.no === 312131490 &&
+                                ((blockGames &&
+                                    containsMarker(field.data, GAME_CARD)) ||
+                                    (blockStore &&
+                                        containsMarker(field.data, STORE_CARD))))),
                 )
             )
                 ad = true;
@@ -345,21 +362,39 @@ SOFTWARE.
     }
     function transformContent(
         message,
-        { blockGames = true, blockVerticalLive = false, jumpAhead = true } = {},
+        {
+            blockGames = true,
+            blockVerticalLive = false,
+            jumpAhead = true,
+            blockStore = true,
+        } = {},
     ) {
         let changed = transformMenus(message);
         const emptied = new WeakSet();
         visitObjects(message, (object) => {
             const layout = object.renderInfo?.layoutRender?.eml?.split("|")[0];
-            if (AD_LAYOUTS.has(layout) || SHOPPING_LAYOUT.test(layout ?? ""))
+            if (
+                AD_LAYOUTS.has(layout) ||
+                (blockStore && SHOPPING_LAYOUT.test(layout ?? ""))
+            )
                 emptied.add(object);
             if (jumpAhead && object.smartSkipButton)
                 changed = unlockJumpAhead(object.smartSkipButton) || changed;
+            if (blockStore && Array.isArray(object.tabs)) {
+                const keep = object.tabs.filter((tab) => !isStoreTab(tab));
+                changed = keep.length !== object.tabs.length || changed;
+                object.tabs = keep;
+            }
             for (const field of ["richItemContents", "overlays"]) {
                 if (!Array.isArray(object[field])) continue;
                 const keep = object[field].filter(
                     (item) =>
-                        !isBlockedItem(item, blockGames, blockVerticalLive),
+                        !isBlockedItem(
+                            item,
+                            blockGames,
+                            blockVerticalLive,
+                            blockStore,
+                        ),
                 );
                 changed = keep.length !== object[field].length || changed;
                 if (object[field].length && !keep.length) emptied.add(object);
@@ -373,7 +408,7 @@ SOFTWARE.
                     keep.length !== object.promotedContents.length || changed;
                 object.promotedContents = keep;
             }
-            if (Array.isArray(object.attachments)) {
+            if (blockStore && Array.isArray(object.attachments)) {
                 const keep = object.attachments.filter(
                     (attachment) => !attachment.products?.length,
                 );
@@ -649,7 +684,12 @@ SOFTWARE.
             [1, "tabs", "BrowseTabSupportedRenderer", true],
         ],
         BrowseTabSupportedRenderer: [[58174010, "tabRenderer", "TabRenderer"]],
-        TabRenderer: [[4, "content", "BrowseContent"]],
+        TabRenderer: [
+            [1, "endpoint", "TabEndpoint"],
+            [4, "content", "BrowseContent"],
+        ],
+        TabEndpoint: [[48687626, "browse", "TabBrowseEndpoint"]],
+        TabBrowseEndpoint: [[3, "params", "string"]],
         ElementRenderer: [
             [172660663, "videoRendererContent", "VideoRendererContent"],
         ],
