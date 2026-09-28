@@ -687,15 +687,26 @@ SOFTWARE.
             )
         )
             return false;
+        const renderer = { offlineable: true };
+        if (command.tracking?.length) {
+            const type = codec("DownloadTracking"),
+                tracking = type.fromBinary(command.tracking);
+            // Native availability action: retain this response's event data,
+            // changing only the element index/type observed in the capture.
+            tracking.index = 1;
+            tracking.visualElement = 7111;
+            renderer.tracking = type.toBinary(tracking);
+        }
         // Native ACTION_ADD from the Indonesia capture. No media fetches,
         // country override, persistent state, or server-license fabrication.
         command.executor = {
             commands: [
                 {
+                    tracking: command.tracking,
                     offlineVideo: {
                         videoId: gate.videoId,
                         action: 1,
-                        offlineability: { renderer: { offlineable: true } },
+                        offlineability: { renderer },
                         actionParams: {
                             formatType: gate.formatType || 2, // HD/720p if unset.
                             settingsAction: 4, // Captured native settings action.
@@ -713,6 +724,7 @@ SOFTWARE.
     const schema = {
         DownloadAction: [[2, "command", "DownloadCommand"]],
         DownloadCommand: [
+            [2, "tracking", "bytes"],
             [382320942, "gatedDownload", "GatedDownload"],
             [174116574, "executor", "DownloadExecutor"],
             [73080600, "offlineVideo", "OfflineVideo"],
@@ -730,7 +742,14 @@ SOFTWARE.
             [6, "actionParams", "DownloadParameters"],
         ],
         Offlineability: [[60572968, "renderer", "OfflineabilityRenderer"]],
-        OfflineabilityRenderer: [[1, "offlineable", "bool"]],
+        OfflineabilityRenderer: [
+            [1, "offlineable", "bool"],
+            [4, "tracking", "bytes"],
+        ],
+        DownloadTracking: [
+            [1, "index", "uint"],
+            [2, "visualElement", "uint"],
+        ],
         DownloadParameters: [
             [1, "formatType", "uint"],
             [2, "settingsAction", "uint"],

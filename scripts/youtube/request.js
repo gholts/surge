@@ -14,6 +14,11 @@
                 result = prepareLogEvent($request.headers, platform);
             else if (path.endsWith("/initplayback"))
                 result = preparePlayback($request.body, platform);
+            else if (
+                path.endsWith("/youtubei/v1/player") &&
+                readOptions().nativeDownload === true
+            )
+                result = prepareOfflineDownload($request.body);
             else if (path.endsWith("/videoplayback")) {
                 const options = readOptions();
                 if (
@@ -59,6 +64,32 @@
             return {};
         clearKeys(platform);
         return emptyPlayback();
+    }
+
+    function prepareOfflineDownload(body) {
+        if (!(body instanceof Uint8Array) || !body.length) return {};
+        const fields = wireFields(body),
+            offline = fields.filter((field) => field.no === 8),
+            params = fields.filter((field) => field.no === 12);
+        if (
+            offline.length !== 1 ||
+            offline[0].wire !== 0 ||
+            offline[0].data.length !== 1 ||
+            offline[0].data[0] !== 1 ||
+            params.length !== 1 ||
+            params[0].wire !== 2 ||
+            params[0].data.length !== 0
+        )
+            return {};
+        // Match the native offline request's absent params. Preserve nonempty
+        // params, online playback, credentials, integrity tokens and all flags.
+        return {
+            body: concatBytes(
+                fields
+                    .filter((field) => field !== params[0])
+                    .map((field) => field.raw),
+            ),
+        };
     }
 
     // 2. Auto HD: edit only SABR quality preferences; preserve every other field.
