@@ -1,5 +1,6 @@
 #!name=YouTube Enhance
-#!desc=Remove YouTube ads, enable background playback/PiP and up to 4x speed, and force highest quality. Maasea-derived code: Apache-2.0.
+#!desc=Remove YouTube ads and enable background playback, Picture in Picture, and up to 4x speed.\nOptions can hide unwanted sections, prefer the highest quality, and enable Jump Ahead.\nBased on Maasea's code (Apache-2.0).
+#!category=gholts
 #!arguments=block_upload:true,block_shorts:false,auto_hd:true,block_games:true,block_vertical_live:false,jump_ahead:true,block_store:true
 #!arguments-desc=block_upload: Hide the Uploads entry from YouTube navigation.\nblock_shorts: Hide the Shorts entry from YouTube navigation.\nauto_hd: Prefer the highest available video quality and prevent automatic downgrades.\nblock_games: Hide YouTube Playables recommendations.\nblock_vertical_live: Hide vertical live recommendations across YouTube layouts.\njump_ahead: Enable YouTube's native Jump Ahead button without its promotion.\nblock_store: Hide creator stores and shopping sections under videos and on channel profiles.
 #!requirement=SYSTEM = 'iOS'

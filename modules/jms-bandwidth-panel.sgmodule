@@ -1,6 +1,6 @@
 #!name=JMS Bandwidth Panel
-#!desc=Show Just My Socks bandwidth from API.
-#!category=Panels
+#!desc=Track monthly Just My Socks bandwidth from its API.\nSee used and remaining data, usage percentage, and the reset day when available.
+#!category=gholts
 #!arguments=service, id
 
 [Script]

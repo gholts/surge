@@ -1,6 +1,6 @@
 #!name=AWS Lightsail Bandwidth Panel
-#!desc=Show monthly bandwidth for two Lightsail instances in two regions.
-#!category=Panels
+#!desc=Track monthly bandwidth for two AWS Lightsail instances in different regions.\nSee used and remaining data, quota percentages, and the next billing date in one panel.
+#!category=gholts
 #!arguments=instance_1_name,instance_2_name,ACCESS_KEY_ID,SECRET_ACCESS_KEY
 #!arguments-desc=Enter two instance names from different regions. AWS keys may be raw or URL-encoded.
 

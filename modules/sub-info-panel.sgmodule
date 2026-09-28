@@ -1,6 +1,6 @@
 #!name=Sub Info Panel
-#!desc=Show subscription traffic and expiration from Subscription-Userinfo.
-#!category=Panels
+#!desc=Track subscription traffic and expiration from the Subscription-Userinfo header.\nSee used and remaining data, usage percentage, and the expiration date when available.
+#!category=gholts
 #!arguments=name:-, url
 
 [Script]
