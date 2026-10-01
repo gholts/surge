@@ -44,7 +44,6 @@ SOFTWARE.
         "reel/reel_watch_sequence": ["Shorts", removeShortsAds],
         guide: ["Guide", filterGuide],
         "account/get_setting": ["Setting", addPremiumSettings],
-        "offline/get_download_action": ["DownloadAction", transformDownload],
         get_watch: ["Watch", transformWatch],
         config: ["Config", null],
         log_event: ["Config", null],
@@ -665,95 +664,9 @@ SOFTWARE.
         return player ? transformPlayer(player, parameters) : false;
     }
 
-    function transformDownload(message, { nativeDownload = false } = {}) {
-        const command = message.command,
-            gate = command?.gatedDownload;
-        if (
-            nativeDownload !== true ||
-            !/^[\w-]{11}$/.test(gate?.videoId ?? "") ||
-            !gate.params ||
-            command.executor ||
-            command.offlineVideo
-        )
-            return false;
-        // Only the observed upsell path. Leave other download actions alone.
-        const params = wireFields(decodeBase64(decodeURIComponent(gate.params)));
-        if (
-            !params.some(
-                (field) =>
-                    field.no === 4 &&
-                    field.wire === 0 &&
-                    numberValue(field.data) === 1,
-            )
-        )
-            return false;
-        const renderer = { offlineable: true };
-        if (command.tracking?.length) {
-            const type = codec("DownloadTracking"),
-                tracking = type.fromBinary(command.tracking);
-            // Native availability action: retain this response's event data,
-            // changing only the element index/type observed in the capture.
-            tracking.index = 1;
-            tracking.visualElement = 7111;
-            renderer.tracking = type.toBinary(tracking);
-        }
-        // Native ACTION_ADD from the Indonesia capture. No media fetches,
-        // country override, persistent state, or server-license fabrication.
-        command.executor = {
-            commands: [
-                {
-                    tracking: command.tracking,
-                    offlineVideo: {
-                        videoId: gate.videoId,
-                        action: 1,
-                        offlineability: { renderer },
-                        actionParams: {
-                            formatType: gate.formatType || 2, // HD/720p if unset.
-                            settingsAction: 4, // Captured native settings action.
-                        },
-                    },
-                },
-            ],
-        };
-        delete command.gatedDownload;
-        return true;
-    }
-
     // 3. Protobuf schema.
     // Editable protobuf fields. Everything not declared here remains opaque.
     const schema = {
-        DownloadAction: [[2, "command", "DownloadCommand"]],
-        DownloadCommand: [
-            [2, "tracking", "bytes"],
-            [382320942, "gatedDownload", "GatedDownload"],
-            [174116574, "executor", "DownloadExecutor"],
-            [73080600, "offlineVideo", "OfflineVideo"],
-        ],
-        GatedDownload: [
-            [1, "videoId", "string"],
-            [3, "formatType", "uint"],
-            [5, "params", "string"],
-        ],
-        DownloadExecutor: [[1, "commands", "DownloadCommand", true]],
-        OfflineVideo: [
-            [1, "videoId", "string"],
-            [2, "action", "uint"],
-            [4, "offlineability", "Offlineability"],
-            [6, "actionParams", "DownloadParameters"],
-        ],
-        Offlineability: [[60572968, "renderer", "OfflineabilityRenderer"]],
-        OfflineabilityRenderer: [
-            [1, "offlineable", "bool"],
-            [4, "tracking", "bytes"],
-        ],
-        DownloadTracking: [
-            [1, "index", "uint"],
-            [2, "visualElement", "uint"],
-        ],
-        DownloadParameters: [
-            [1, "formatType", "uint"],
-            [2, "settingsAction", "uint"],
-        ],
         Browse: [
             [9, "content", "BrowseContent"],
             [10, "onResponseReceivedAction", "BrowseContent"],
