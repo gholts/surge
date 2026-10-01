@@ -1,7 +1,8 @@
 #!name=JMS Bandwidth Panel
-#!desc=Track monthly Just My Socks bandwidth from its API.\nSee used and remaining data, usage percentage, and the reset day when available.
+#!desc=Show monthly Just My Socks bandwidth.
 #!category=gholts
 #!arguments=service, id
+#!arguments-desc=service\n  └ service value from JMS bandwidth URL\nid\n  └ id value from JMS bandwidth URL
 
 [Script]
 jms-bandwidth-panel = type=generic,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/jms-bandwidth-panel.js,argument=service={{{service}}}&id={{{id}}},timeout=8

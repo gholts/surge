@@ -1,8 +1,8 @@
 #!name=Feather Fully Local Manifest
-#!desc=Generate Feather install manifests locally in Surge, without backloop.dev certificates or an external manifest server.\nIn Feather, select Semi Local and enable Only use localhost address.\nRequires a trusted Surge CA plus MITM, Rewrite, and Scripting.
+#!desc=Keep Feather installs local without backloop.dev certificates or an external manifest server.\nIn Feather, select Semi Local and Only use localhost address.
 #!category=gholts
 #!arguments=manifest_host:api.palera.in
-#!arguments-desc=Feather manifest-server hostname. Change this if Feather moves genPlist to another domain. Enter hostname only, without scheme or path.
+#!arguments-desc=manifest_host\n  └ Manifest server hostname (no scheme or path)
 #!requirement=SYSTEM = 'iOS' || SYSTEM = 'macOS'
 
 # Surge terminates the HTTPS manifest request and generates its response locally.

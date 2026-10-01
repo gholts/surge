@@ -1,7 +1,8 @@
 #!name=Sub Info Panel
-#!desc=Track subscription traffic and expiration from the Subscription-Userinfo header.\nSee used and remaining data, usage percentage, and the expiration date when available.
+#!desc=Show subscription usage and expiration.
 #!category=gholts
 #!arguments=name:-, url
+#!arguments-desc=name\n  └ Panel name (optional)\nurl\n  └ Subscription URL
 
 [Script]
 sub-info-panel = type=generic,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/sub-info-panel.js,argument=name={{{name}}}&url={{{url}}},timeout=10
