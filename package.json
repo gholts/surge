@@ -1,0 +1,26 @@
+{
+    "name": "surge-youtube-build",
+    "private": true,
+    "scripts": {
+        "format": "prettier --write package.json tsconfig.json \".github/workflows/*.yml\" build.cts \"src/*.ts\" \"!node_modules/**\" \"!dist/**\" \"!src/youtube-enhance.sgmodule\"",
+        "format:check": "prettier --check package.json tsconfig.json \".github/workflows/*.yml\" build.cts \"src/*.ts\" \"!node_modules/**\" \"!dist/**\" \"!src/youtube-enhance.sgmodule\"",
+        "build": "node build.cts",
+        "build:check": "node build.cts --check"
+    },
+    "devDependencies": {
+        "@types/node": "24.19.1",
+        "prettier": "3.9.9",
+        "typescript": "7.0.2"
+    },
+    "prettier": {
+        "tabWidth": 4,
+        "overrides": [
+            {
+                "files": "*.yml",
+                "options": {
+                    "tabWidth": 2
+                }
+            }
+        ]
+    }
+}

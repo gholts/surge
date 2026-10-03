@@ -1,0 +1,56 @@
+name: Build YouTube products
+
+on:
+  push:
+    branches: [build]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: youtube-products
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: source
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run format:check
+      - run: npm run build
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: products
+      - name: Publish changed products
+        working-directory: products
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          latest_build=$(git ls-remote origin refs/heads/build | cut -f1)
+          if [ "$latest_build" != "$BUILD_SHA" ]; then
+            echo "Skip superseded build $BUILD_SHA"
+            exit 0
+          fi
+          for file in request response key ump; do
+            cp "../source/dist/scripts/youtube/$file.js" "scripts/youtube/$file.js"
+          done
+          cp ../source/dist/modules/youtube-enhance.sgmodule modules/youtube-enhance.sgmodule
+          git add scripts/youtube/request.js scripts/youtube/response.js scripts/youtube/key.js scripts/youtube/ump.js modules/youtube-enhance.sgmodule
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Build YouTube products from $BUILD_SHA"
+          git push origin HEAD:main
