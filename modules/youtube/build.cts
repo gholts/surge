@@ -7,13 +7,14 @@ const {
     spawnSync,
 }: typeof import("node:child_process") = require("node:child_process");
 const dir = __dirname;
+const root = path.resolve(dir, "../..");
 const compiled = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-ts-"));
 const sources = new Map<string, string>();
 try {
     const result = spawnSync(
         process.execPath,
         [
-            path.join(dir, "node_modules/typescript/bin/tsc"),
+            path.join(root, "node_modules/typescript/bin/tsc"),
             "--project",
             path.join(dir, "tsconfig.json"),
             "--outDir",
@@ -39,9 +40,7 @@ function read(name: string) {
     if (contents === undefined) throw new Error("Missing source: " + name);
     return contents;
 }
-const context: { value?: Schema } = {};
-vm.runInNewContext(read("schema") + "\nglobalThis.value = schema;", context);
-const schema = context.value!;
+const schema = vm.runInNewContext(read("schema") + "\nschema;") as Schema;
 const common = ["storage", "bytes", "wire", "integer"];
 const library = ["quality", "content", "api-features", "watch", "codec"];
 type Role = "request" | "response" | "key" | "ump";
@@ -152,12 +151,13 @@ function schemaCode(roots: string[]) {
         ");"
     );
 }
-function assemble(parts: string[], roots: string[] | undefined, entry: string) {
+function build(role: Role) {
+    const { parts, roots, entry } = roles[role];
     const chunks = roots
         ? [schemaCode(roots), ...parts.map(read)]
         : parts.map(read);
     return (
-        "// Generated from src/; edit fragments, then run npm run build.\n" +
+        "// Generated from modules/youtube/src/; edit fragments, then run npm run build --workspace youtube.\n" +
         "(() => {\n" +
         chunks.join("\n\n").replace(/[^\n]+/g, "    $&") +
         "\n\n    " +
@@ -165,16 +165,12 @@ function assemble(parts: string[], roots: string[] | undefined, entry: string) {
         "();\n})();\n"
     );
 }
-function build(role: Role) {
-    const { parts, roots, entry } = roles[role];
-    return assemble(parts, roots, entry);
-}
 module.exports = { build, roles };
 if (require.main === module) {
     const check = process.argv.includes("--check");
     let stale = false;
     function output(relative: string, contents: string) {
-        const file = path.join(dir, "dist", relative);
+        const file = path.join(root, "dist", relative);
         if (check) {
             if (
                 !fs.existsSync(file) ||
@@ -195,10 +191,7 @@ if (require.main === module) {
     }
     output(
         path.join("modules", "youtube-enhance.sgmodule"),
-        fs.readFileSync(
-            path.join(dir, "src", "youtube-enhance.sgmodule"),
-            "utf8",
-        ),
+        fs.readFileSync(path.join(dir, "youtube-enhance.sgmodule"), "utf8"),
     );
     if (stale) process.exitCode = 1;
 }

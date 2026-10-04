@@ -28,7 +28,7 @@ jobs:
           package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run format:check
-      - run: npm run build
+      - run: npm run build --workspace youtube
       - uses: actions/checkout@v7
         with:
           ref: main

@@ -1,11 +1,11 @@
 {
-    "name": "surge-youtube-build",
+    "name": "surge-build",
     "private": true,
     "scripts": {
-        "format": "prettier --write package.json tsconfig.json \".github/workflows/*.yml\" build.cts \"src/*.ts\" \"!node_modules/**\" \"!dist/**\" \"!src/youtube-enhance.sgmodule\"",
-        "format:check": "prettier --check package.json tsconfig.json \".github/workflows/*.yml\" build.cts \"src/*.ts\" \"!node_modules/**\" \"!dist/**\" \"!src/youtube-enhance.sgmodule\"",
-        "build": "node build.cts",
-        "build:check": "node build.cts --check"
+        "format": "prettier --write package.json tsconfig.base.json \".github/workflows/*.yml\" \"modules/**/*.{cts,ts,json}\" \"!**/node_modules/**\" \"!**/dist/**\" \"!modules/**/*.sgmodule\"",
+        "format:check": "prettier --check package.json tsconfig.base.json \".github/workflows/*.yml\" \"modules/**/*.{cts,ts,json}\" \"!**/node_modules/**\" \"!**/dist/**\" \"!modules/**/*.sgmodule\"",
+        "build": "npm run build --workspaces",
+        "build:check": "npm run build:check --workspaces"
     },
     "devDependencies": {
         "@types/node": "24.19.1",
@@ -22,5 +22,8 @@
                 }
             }
         ]
-    }
+    },
+    "workspaces": [
+        "modules/*"
+    ]
 }

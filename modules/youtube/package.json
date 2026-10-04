@@ -1,0 +1,8 @@
+{
+    "name": "youtube",
+    "private": true,
+    "scripts": {
+        "build": "node build.cts",
+        "build:check": "node build.cts --check"
+    }
+}
