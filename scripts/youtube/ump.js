@@ -299,6 +299,7 @@
     const STORE_TAB = textEncoder.encode("store");
     const LIVE_BADGE = textEncoder.encode("youtube_outline_experimental/live_24pt");
     const IMMERSIVE_LIVE = textEncoder.encode("immersive_live");
+    const PREMIUM_BROWSE_ID = textEncoder.encode("SPunlimited");
     function containsMarker(bytes, marker = AD_TRACKING) {
         if (!marker.length)
             return true;
@@ -360,6 +361,24 @@
             return false;
         }
     }
+    function isPremiumBanner(bytes) {
+        // Statement banner's CTA browse ID; independent of localized display text.
+        const path = [2, 11, 1, 4, 170382656, 1, 169495254, 48687626, 2];
+        function matches(bytes, depth) {
+            if (depth === path.length)
+                return sameBytes(bytes, PREMIUM_BROWSE_ID);
+            const fields = wireFields(bytes).filter((field) => field.no === path[depth] && field.wire === 2);
+            // The executor contains a list of commands; other hops are singletons.
+            return ((depth === 5 || fields.length === 1) &&
+                fields.some((field) => matches(field.data, depth + 1)));
+        }
+        try {
+            return matches(bytes, 0);
+        }
+        catch {
+            return false;
+        }
+    }
     function isBlockedObject(object, blockGames, blockVerticalLive, blockStore) {
         const layout = object.layoutRender?.eml?.split("|")[0];
         if (AD_LAYOUTS.has(layout) ||
@@ -373,6 +392,7 @@
             return true;
         return unknownFields(object).some((field) => field.wire === 2 &&
             (containsMarker(field.data) ||
+                (field.no === 325515470 && isPremiumBanner(field.data)) ||
                 (blockStore && field.no === 400157044) ||
                 field.no === 455507059 ||
                 (blockVerticalLive &&
