@@ -59,6 +59,7 @@ interface Options {
     blockVerticalLive?: boolean;
     jumpAhead?: boolean;
     blockStore?: boolean;
+    blockAi?: boolean;
 }
 interface QualityRecord {
     height: number;

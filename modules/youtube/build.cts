@@ -42,7 +42,7 @@ function read(name: string) {
 }
 const schema = vm.runInNewContext(read("schema") + "\nschema;") as Schema;
 const common = ["storage", "bytes", "wire", "integer"];
-const library = ["quality", "content", "api-features", "watch", "codec"];
+const library = ["quality", "ai", "content", "api-features", "watch", "codec"];
 type Role = "request" | "response" | "key" | "ump";
 const roles: Record<
     Role,
@@ -100,6 +100,7 @@ const roles: Record<
             "base64-decode",
             "quality-record",
             "quality",
+            "ai",
             "content",
             "watch",
             "codec",

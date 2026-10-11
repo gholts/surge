@@ -137,6 +137,7 @@ function transformContent(
         blockVerticalLive = false,
         jumpAhead = true,
         blockStore = true,
+        blockAi = true,
     }: Options = {},
 ) {
     let changed = transformMenus(message);
@@ -172,12 +173,13 @@ function transformContent(
         // Local and descendant blocking facts describe the pre-edit tree.
         let blocked =
             classify &&
-            isBlockedObject(
+            (isBlockedObject(
                 object as ContentNode,
                 blockGames,
                 blockVerticalLive,
                 blockStore,
-            );
+            ) ||
+                (blockAi && isAiOnlyCarousel(object)));
         const layout = (
             object as ContentNode
         ).renderInfo?.layoutRender?.eml?.split("|")[0];
@@ -186,6 +188,7 @@ function transformContent(
             (AD_LAYOUT.test(layout) ||
                 (blockStore && SHOPPING_LAYOUT.test(layout)));
         if (classify && (blocked || empty)) return BLOCKED;
+        if (blockAi) changed = removeAi(object) || changed;
         const state = object[wireState];
         for (const name of Object.keys(object)) {
             if (!classify && state?.deferred) {

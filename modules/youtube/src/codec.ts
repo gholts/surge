@@ -239,6 +239,35 @@ function unknownFields(message: ProtoNode): WireField[] {
     return (state.unknown = unknown ?? EMPTY_FIELDS);
 }
 
+// Patch a verified opaque field without teaching the content walker its schema.
+function rewriteUnknownField(
+    message: ProtoNode,
+    no: number,
+    transform: (bytes: Uint8Array) => Uint8Array | undefined,
+) {
+    let edits: { field: WireField; data: Uint8Array | undefined }[] | undefined;
+    for (const field of unknownFields(message)) {
+        if (field.no !== no || field.wire !== 2) continue;
+        const data = transform(field.data);
+        if (data && sameBytes(data, field.data)) continue;
+        (edits ??= []).push({ field, data });
+    }
+    if (!edits) return false;
+    const state = message[wireState]!;
+    for (const { field, data } of edits) {
+        if (data) {
+            field.data = data;
+            field.raw = encodeField([no, "", "bytes"], data);
+        } else {
+            state.fields.splice(state.fields.indexOf(field), 1);
+        }
+    }
+    state.unknown = undefined;
+    // No declared field changed here; ancestors still use parentName.
+    markChanged(state, "");
+    return true;
+}
+
 // Edit a declared binary path; keep all siblings and repeated occurrences.
 function rewriteBinaryPath(
     bytes: Uint8Array,
