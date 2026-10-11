@@ -21,7 +21,12 @@ function apiMain() {
         const route =
             Object.hasOwn(ROUTES, endpoint) &&
             (ROUTES as Record<string, Route>)[endpoint];
-        if (!route || !$response.body?.length) return $done();
+        if (
+            !route ||
+            Number($response.status) >= 300 ||
+            !$response.body?.length
+        )
+            return $done();
         const [type, transform] = route,
             messageCodec = codec(type);
         const message = messageCodec.fromBinary($response.body);

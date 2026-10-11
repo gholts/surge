@@ -208,17 +208,8 @@ async function transformGzip(bytes: Uint8Array, decompress: boolean) {
         return (await Promise.all([reading, writing]))[0];
     } catch (error) {
         await Promise.allSettled([reader.cancel(error), writer.abort(error)]);
-        // Surge's stream rejects concatenated members; its native utility
-        // preserves the previous inflater's first-member behavior.
-        if (
-            decompress &&
-            (error as { message?: unknown } | null | undefined)?.message ===
-                "Extra bytes past the end."
-        ) {
-            const firstMember = $utils.ungzip(bytes);
-            if (firstMember && firstMember.length <= 16 * 1024 * 1024)
-                return firstMember;
-        }
+        // Native ungzip only returns the first gzip member on iOS. Never
+        // rewrite a partial response; let umpMain trigger playback fallback.
         throw error;
     } finally {
         reader.releaseLock();

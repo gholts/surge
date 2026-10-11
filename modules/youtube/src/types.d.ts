@@ -96,7 +96,6 @@ declare const $persistentStore: {
     read(key: string): string | null;
     write(value: string, key: string): boolean;
 };
-declare const $utils: { ungzip(bytes: Uint8Array): Uint8Array | null };
 declare function $done(result?: SurgeResult): void;
 declare const textEncoder: TextEncoder;
 declare const utf8: TextDecoder;

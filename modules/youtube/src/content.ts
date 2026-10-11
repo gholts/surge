@@ -1,10 +1,5 @@
-const AD_LAYOUTS = new Set([
-    "inline_injection_entrypoint_layout.eml",
-    "video_display_button_group_layout.eml-fe",
-    "full_width_portrait_image_layout.eml-fe",
-    "full_width_square_image_layout.eml-fe",
-    "video_display_full_buttoned_layout.eml-fe",
-]);
+const AD_LAYOUT =
+    /^(?:inline_injection_entrypoint_layout|video_display_button_group_layout|full_width_portrait_image_layout|full_width_square_image_layout|video_display_full_buttoned_layout)\.eml(?:-js)?(?:-fe)?$/;
 // Match active shopping components, not product words in titles or URLs.
 const SHOPPING_LAYOUT =
     /^(?:shopping_|products?_in_video_)[a-z0-9_]+\.eml(?:-js)?(?:-fe)?$/;
@@ -108,9 +103,10 @@ function isBlockedObject(
 ) {
     const layout = object.layoutRender?.eml?.split("|")[0];
     if (
-        AD_LAYOUTS.has(layout!) ||
-        (blockStore &&
-            (SHOPPING_LAYOUT.test(layout ?? "") || object.shoppingShelf)) ||
+        (layout &&
+            (AD_LAYOUT.test(layout) ||
+                (blockStore && SHOPPING_LAYOUT.test(layout)))) ||
+        (blockStore && object.shoppingShelf) ||
         object.sponsoredVideo ||
         object.sponsoredDisplay ||
         (blockVerticalLive &&
@@ -186,8 +182,9 @@ function transformContent(
             object as ContentNode
         ).renderInfo?.layoutRender?.eml?.split("|")[0];
         let empty =
-            AD_LAYOUTS.has(layout!) ||
-            (blockStore && SHOPPING_LAYOUT.test(layout ?? ""));
+            !!layout &&
+            (AD_LAYOUT.test(layout) ||
+                (blockStore && SHOPPING_LAYOUT.test(layout)));
         if (classify && (blocked || empty)) return BLOCKED;
         const state = object[wireState];
         for (const name of Object.keys(object)) {
@@ -323,15 +320,18 @@ function unlockSpeedMenu(bytes: Uint8Array) {
                 4,
             ).getFloat32(0, true);
             if (!(rate > 0)) return selector; // Keep disabled/live controls disabled.
-            const limit = new Uint8Array(4);
-            new DataView(limit.buffer).setFloat32(0, Math.max(4, rate), true);
-            const expanded = concatBytes(
-                fields.map((field) =>
-                    field === maximum && rate < 4
-                        ? concatBytes([varint(45), limit])
-                        : field.raw,
-                ),
-            );
+            let expanded = selector;
+            if (rate < 4) {
+                const limit = new Uint8Array(4);
+                new DataView(limit.buffer).setFloat32(0, 4, true);
+                expanded = concatBytes(
+                    fields.map((field) =>
+                        field === maximum
+                            ? concatBytes([varint(45), limit])
+                            : field.raw,
+                    ),
+                );
+            }
             // Presets already contain the real rate action; field 3 overrides it
             // with the Premium panel. Remove only that preset-specific override.
             return rewriteBinaryPath(expanded, [10, 1674], (preset) => {
