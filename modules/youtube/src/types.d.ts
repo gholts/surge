@@ -75,6 +75,7 @@ interface StoredKeys {
 }
 interface SurgeRequest {
     url: string;
+    method?: string;
     headers?: Record<string, string>;
     body?: Uint8Array | string;
 }
@@ -85,7 +86,11 @@ interface SurgeResult {
     response?: SurgeResult;
 }
 declare const $request: SurgeRequest;
-declare const $response: { body?: Uint8Array; status?: number | string };
+declare const $response: {
+    body?: Uint8Array;
+    status?: number | string;
+    headers?: Record<string, string>;
+};
 declare const $argument: string | undefined;
 declare const $persistentStore: {
     read(key: string): string | null;

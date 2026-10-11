@@ -4,7 +4,16 @@ async function umpMain() {
         invalidStoredKey = false;
     try {
         const status = Number($response.status);
-        if (status >= 300 && status < 400) return $done();
+        if (status >= 300 || !$response.body?.length) return $done();
+        // initplayback also returns redirect URLs and HTTP error documents.
+        const contentType = Object.entries($response.headers ?? {}).find(
+            ([name]) => name.toLowerCase() === "content-type",
+        )?.[1];
+        if (
+            contentType &&
+            !/^application\/vnd\.yt-ump(?:\s*;|\s*$)/i.test(contentType)
+        )
+            return $done();
         platform = platformKey($request);
         expected = readConfig()[platform] as StoredKeys | undefined;
         const clientKey = expected?.clientKey;
@@ -20,7 +29,6 @@ async function umpMain() {
             invalidStoredKey = true;
             throw error;
         }
-        if (!$response.body) throw new Error("YouTubeConfig requires body");
         const options = readOptions({ blockGames: true });
         const result = await transformUmp($response.body, key, options);
         if (options.autoHd !== false) cacheQuality(result.players);

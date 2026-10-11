@@ -30,7 +30,9 @@ class UmpReader {
         const type = this.readVarint(),
             length = this.readVarint();
         if (length > this.buffer.length - this.offset)
-            throw new Error("Truncated UMP payload");
+            throw new Error(
+                `Truncated UMP payload: type=${type}, offset=${this.offset}, expected=${length}, available=${this.buffer.length - this.offset}`,
+            );
         const data = this.buffer.subarray(this.offset, this.offset + length);
         this.offset += length;
         return {
