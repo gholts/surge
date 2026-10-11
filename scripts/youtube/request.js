@@ -287,8 +287,11 @@
                 result = emptyPlayback();
             else if (path.endsWith("/log_event"))
                 result = prepareLogEvent($request);
-            else if (path.endsWith("/initplayback"))
-                result = preparePlayback($request.body, platformKey($request));
+            else if (path.endsWith("/initplayback")) {
+                // Redirect discovery uses bodyless GETs on the same endpoint.
+                if ($request.method !== "GET" && $request.method !== "HEAD")
+                    result = preparePlayback($request.body, platformKey($request));
+            }
             else if (path.endsWith("/videoplayback")) {
                 const body = readOptions().autoHd === false ? undefined : $request.body;
                 if (body instanceof Uint8Array && body.length) {
@@ -329,6 +332,8 @@
         return { headers };
     }
     function preparePlayback(body, platform) {
+        if (body === undefined || body.length === 0)
+            return;
         const expected = readConfig()[platform], storedKey = expected?.encryptKey;
         let key;
         try {
@@ -342,9 +347,9 @@
             clearKeys(platform, expected);
             throw error;
         }
-        if (body !== undefined && !(body instanceof Uint8Array))
+        if (!(body instanceof Uint8Array))
             throw new Error("Playback requires binary body");
-        const encrypted = body instanceof Uint8Array ? bytesField(body, 3) : undefined;
+        const encrypted = bytesField(body, 3);
         const clientKey = encrypted && bytesField(encrypted, 5);
         if (!clientKey?.length)
             return emptyPlayback();

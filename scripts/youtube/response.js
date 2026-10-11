@@ -263,13 +263,157 @@
         }
     }
 
-    const AD_LAYOUTS = new Set([
-        "inline_injection_entrypoint_layout.eml",
-        "video_display_button_group_layout.eml-fe",
-        "full_width_portrait_image_layout.eml-fe",
-        "full_width_square_image_layout.eml-fe",
-        "video_display_full_buttoned_layout.eml-fe",
-    ]);
+    const AI_PANEL = textEncoder.encode("PAyouchat");
+    const AI_SUMMARY = textEncoder.encode("ai_summary_");
+    function aiPathMatches(bytes, path, target = AI_PANEL, prefix = false) {
+        if (!path.length)
+            return prefix
+                ? sameBytes(bytes.subarray(0, target.length), target)
+                : sameBytes(bytes, target);
+        return wireFields(bytes).some((field) => field.no === path[0] &&
+            field.wire === 2 &&
+            aiPathMatches(field.data, path.slice(1), target, prefix));
+    }
+    function rewriteAiFields(bytes, no, transform) {
+        let changed = false;
+        const chunks = wireFields(bytes).flatMap((field) => {
+            if (field.no !== no || field.wire !== 2)
+                return [field.raw];
+            const data = transform(field.data);
+            if (data && sameBytes(data, field.data))
+                return [field.raw];
+            changed = true;
+            return data ? [encodeField([no, "", "bytes"], data)] : [];
+        });
+        return changed ? concatBytes(chunks) : bytes;
+    }
+    function removeAiActionBar(bytes) {
+        return rewriteAiFields(bytes, 1, (button) => aiPathMatches(button, [10, 461054335, 4, 169495254, 138681778, 1])
+            ? undefined
+            : rewriteBinaryPath(button, [10, 37098], (menu) => rewriteAiFields(menu, 3, (item) => aiPathMatches(item, [489973921, 997, 3, 3, 169495254, 138681778, 1])
+                ? undefined
+                : item)));
+    }
+    function removeAiQuickActions(bytes) {
+        return rewriteAiFields(bytes, 10, (button) => aiPathMatches(button, [15, 461054335, 4, 169495254, 138681778, 1])
+            ? undefined
+            : rewriteBinaryPath(button, [6], (menu) => rewriteAiFields(menu, 3, (item) => aiPathMatches(item, [4, 16, 461054335, 4, 169495254, 138681778, 1])
+                ? undefined
+                : item)));
+    }
+    function removeAiCarousel(bytes) {
+        return rewriteBinaryPath(bytes, [1], (carousel) => {
+            const fields = wireFields(carousel);
+            const headers = fields.filter((field) => field.no === 1 && field.wire === 2);
+            const cards = fields.filter((field) => field.no === 2 && field.wire === 2);
+            // Parallel header/card arrays must retain matching indices (Comments vs Ask).
+            if (headers.length !== cards.length)
+                return carousel;
+            const removed = new Set();
+            cards.forEach((card, index) => {
+                if (aiPathMatches(card.data, [8, 2, 169495254, 138681778, 1])) {
+                    removed.add(card);
+                    removed.add(headers[index]);
+                }
+            });
+            return removed.size
+                ? concatBytes(fields
+                    .filter((field) => !removed.has(field))
+                    .map((field) => field.raw))
+                : carousel;
+        });
+    }
+    function isAiOnlyCarousel(object) {
+        try {
+            return unknownFields(object).some((field) => {
+                if (field.no !== 408379376 || field.wire !== 2)
+                    return false;
+                const bodies = wireFields(field.data).filter((field) => field.no === 1 && field.wire === 2);
+                if (bodies.length !== 1)
+                    return false;
+                const fields = wireFields(bodies[0].data);
+                const headers = fields.filter((field) => field.no === 1 && field.wire === 2);
+                const cards = fields.filter((field) => field.no === 2 && field.wire === 2);
+                return (cards.length > 0 &&
+                    cards.length === headers.length &&
+                    cards.every((card) => aiPathMatches(card.data, [8, 2, 169495254, 138681778, 1])));
+            });
+        }
+        catch {
+            return false;
+        }
+    }
+    function removeAiElement(bytes) {
+        return rewriteBinaryPath(bytes, [153515154, 172660663, 1, 168777401, 5], (content) => {
+            let result = rewriteAiFields(content, 386137609, removeAiQuickActions);
+            result = rewriteBinaryPath(result, [413471385, 1], (data) => rewriteAiFields(data, 2185, removeAiActionBar));
+            return rewriteAiFields(result, 408379376, removeAiCarousel);
+        });
+    }
+    function removeAiSummary(bytes) {
+        const result = rewriteAiFields(bytes, 45, (key) => aiPathMatches(key, [], AI_SUMMARY, true) ? undefined : key);
+        // Only remove the summary update command; keep inline playback commands.
+        return rewriteBinaryPath(result, [1, 19, 1, 1, 4, 424915055, 1], (playback) => rewriteAiFields(playback, 31, (command) => aiPathMatches(command, [1, 204158123, 194114827, 1], AI_SUMMARY, true)
+            ? undefined
+            : command));
+    }
+    function removeAi(object) {
+        let changed = false;
+        try {
+            const next = object;
+            if (next.engagementPanels?.length) {
+                const keep = next.engagementPanels.filter((panel) => {
+                    const renderer = panel.renderer;
+                    return (!renderer ||
+                        !unknownFields(renderer).some((field) => field.no === 1 &&
+                            field.wire === 2 &&
+                            sameBytes(field.data, AI_PANEL)));
+                });
+                changed = setField(next, "engagementPanels", keep) || changed;
+                for (const panel of keep) {
+                    if (!panel.renderer)
+                        continue;
+                    changed =
+                        rewriteUnknownField(panel.renderer, 10, (footer) => aiPathMatches(footer, [
+                            260791572, 1, 153515154, 172660663, 1,
+                            168777401, 5, 413471385, 1, 2553, 997, 3, 3,
+                            170382688, 1, 169495254, 138681778, 1,
+                        ])
+                            ? undefined
+                            : footer) || changed;
+                }
+            }
+            if (next.playerOverlays?.renderer)
+                changed =
+                    rewriteUnknownField(next.playerOverlays.renderer, 37, removeAiElement) || changed;
+            changed =
+                rewriteUnknownField(object, 216561405, (metadata) => rewriteBinaryPath(metadata, [1], removeAiElement)) || changed;
+            changed =
+                rewriteUnknownField(object, 386137609, removeAiQuickActions) ||
+                    changed;
+            changed =
+                rewriteUnknownField(object, 408379376, removeAiCarousel) || changed;
+            const content = object;
+            if (content.element?.data)
+                changed =
+                    rewriteUnknownField(content.element.data, 2185, removeAiActionBar) || changed;
+            if (content.videoLockup)
+                changed =
+                    rewriteUnknownField(content.videoLockup, 18, removeAiSummary) ||
+                        changed;
+            if (object.videoContent?.videoLockup)
+                changed =
+                    rewriteUnknownField(object, 6, (bindings) => rewriteBinaryPath(bindings, [188490103], (collection) => rewriteAiFields(collection, 1, (binding) => aiPathMatches(binding, [1], AI_SUMMARY, true)
+                        ? undefined
+                        : binding))) || changed;
+        }
+        catch (error) {
+            console.log("YouTube AI controls: " + error);
+        }
+        return changed;
+    }
+
+    const AD_LAYOUT = /^(?:inline_injection_entrypoint_layout|video_display_button_group_layout|full_width_portrait_image_layout|full_width_square_image_layout|video_display_full_buttoned_layout)\.eml(?:-js)?(?:-fe)?$/;
     // Match active shopping components, not product words in titles or URLs.
     const SHOPPING_LAYOUT = /^(?:shopping_|products?_in_video_)[a-z0-9_]+\.eml(?:-js)?(?:-fe)?$/;
     const AD_TRACKING = textEncoder.encode("/pagead/");
@@ -360,9 +504,10 @@
     }
     function isBlockedObject(object, blockGames, blockVerticalLive, blockStore) {
         const layout = object.layoutRender?.eml?.split("|")[0];
-        if (AD_LAYOUTS.has(layout) ||
-            (blockStore &&
-                (SHOPPING_LAYOUT.test(layout ?? "") || object.shoppingShelf)) ||
+        if ((layout &&
+            (AD_LAYOUT.test(layout) ||
+                (blockStore && SHOPPING_LAYOUT.test(layout)))) ||
+            (blockStore && object.shoppingShelf) ||
             object.sponsoredVideo ||
             object.sponsoredDisplay ||
             (blockVerticalLive &&
@@ -382,7 +527,7 @@
                         (blockStore &&
                             containsMarker(field.data, STORE_CARD))))));
     }
-    function transformContent(message, { blockGames = true, blockVerticalLive = false, jumpAhead = true, blockStore = true, } = {}) {
+    function transformContent(message, { blockGames = true, blockVerticalLive = false, jumpAhead = true, blockStore = true, blockAi = true, } = {}) {
         let changed = transformMenus(message);
         const BLOCKED = 1, EMPTY = 2;
         const filtered = new Set(["richItemContents", "overlays"]);
@@ -414,12 +559,16 @@
             }
             // Local and descendant blocking facts describe the pre-edit tree.
             let blocked = classify &&
-                isBlockedObject(object, blockGames, blockVerticalLive, blockStore);
+                (isBlockedObject(object, blockGames, blockVerticalLive, blockStore) ||
+                    (blockAi && isAiOnlyCarousel(object)));
             const layout = object.renderInfo?.layoutRender?.eml?.split("|")[0];
-            let empty = AD_LAYOUTS.has(layout) ||
-                (blockStore && SHOPPING_LAYOUT.test(layout ?? ""));
+            let empty = !!layout &&
+                (AD_LAYOUT.test(layout) ||
+                    (blockStore && SHOPPING_LAYOUT.test(layout)));
             if (classify && (blocked || empty))
                 return BLOCKED;
+            if (blockAi)
+                changed = removeAi(object) || changed;
             const state = object[wireState];
             for (const name of Object.keys(object)) {
                 if (!classify && state?.deferred) {
@@ -544,11 +693,14 @@
             const rate = new DataView(maximum.data.buffer, maximum.data.byteOffset, 4).getFloat32(0, true);
             if (!(rate > 0))
                 return selector; // Keep disabled/live controls disabled.
-            const limit = new Uint8Array(4);
-            new DataView(limit.buffer).setFloat32(0, Math.max(4, rate), true);
-            const expanded = concatBytes(fields.map((field) => field === maximum && rate < 4
-                ? concatBytes([varint(45), limit])
-                : field.raw));
+            let expanded = selector;
+            if (rate < 4) {
+                const limit = new Uint8Array(4);
+                new DataView(limit.buffer).setFloat32(0, 4, true);
+                expanded = concatBytes(fields.map((field) => field === maximum
+                    ? concatBytes([varint(45), limit])
+                    : field.raw));
+            }
             // Presets already contain the real rate action; field 3 overrides it
             // with the Premium panel. Remove only that preset-specific override.
             return rewriteBinaryPath(expanded, [10, 1674], (preset) => {
@@ -925,6 +1077,34 @@
                 (unknown ??= []).push(field);
         return (state.unknown = unknown ?? EMPTY_FIELDS);
     }
+    // Patch a verified opaque field without teaching the content walker its schema.
+    function rewriteUnknownField(message, no, transform) {
+        let edits;
+        for (const field of unknownFields(message)) {
+            if (field.no !== no || field.wire !== 2)
+                continue;
+            const data = transform(field.data);
+            if (data && sameBytes(data, field.data))
+                continue;
+            (edits ??= []).push({ field, data });
+        }
+        if (!edits)
+            return false;
+        const state = message[wireState];
+        for (const { field, data } of edits) {
+            if (data) {
+                field.data = data;
+                field.raw = encodeField([no, "", "bytes"], data);
+            }
+            else {
+                state.fields.splice(state.fields.indexOf(field), 1);
+            }
+        }
+        state.unknown = undefined;
+        // No declared field changed here; ancestors still use parentName.
+        markChanged(state, "");
+        return true;
+    }
     // Edit a declared binary path; keep all siblings and repeated occurrences.
     function rewriteBinaryPath(bytes, path, transform) {
         if (!path.length)
@@ -958,7 +1138,9 @@
             const endpoint = $request.url.split("?")[0].split("/youtubei/v1/")[1];
             const route = Object.hasOwn(ROUTES, endpoint) &&
                 ROUTES[endpoint];
-            if (!route || !$response.body?.length)
+            if (!route ||
+                Number($response.status) >= 300 ||
+                !$response.body?.length)
                 return $done();
             const [type, transform] = route, messageCodec = codec(type);
             const message = messageCodec.fromBinary($response.body);
