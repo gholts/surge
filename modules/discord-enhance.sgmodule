@@ -1,21 +1,32 @@
 #!name=Discord Enhance
-#!desc=Suppress outgoing typing and filter Nitro gift-campaign responses. Optional experimental Quest progress rewriting.\nRestart Discord, then open the Quest list. No message, upload, profile, or billing rewrites. Does not unlock native pickers or remove built-in Nitro controls.
+#!desc=Silent typing, Nitro gift-promotion filtering, and experimental Quest video speedup.\niOS Quest playback: up to 720p and 2×; audio pitch increases. Restart Discord after changing speed. Live playback and reward credit need verification.
 #!category=gholts
 #!arguments=quest_seconds:0,silent_typing:true,hide_nitro_promotions:true
-#!arguments-desc=quest_seconds\n  └ Experimental reported-progress scaling toward a 0–24 second saving; 0 disables. Playback speed stays unchanged. Server acceptance is unverified.\nsilent_typing\n  └ Hide your typing indicator.\nhide_nitro_promotions\n  └ Filter Nitro gift promotions.
+#!arguments-desc=quest_seconds\n  └ Seconds to save per Quest (0–24, max 2×; 0 disables).\nsilent_typing\n  └ Hide your typing indicator.\nhide_nitro_promotions\n  └ Filter Nitro gift promotions.
 #!requirement=SYSTEM = 'iOS' || SYSTEM = 'macOS'
 
 # Requires a trusted Surge CA, MITM, and Scripting.
 # No message/upload request hooks: body buffering can reject multipart uploads before JS runs.
 # Typing uses the empty 204 response observed in both DM and server captures.
 # Promotion filtering matches premium_promotion.reward_sku_ids; visible UI effects need live testing.
-# Quest rewriting only changes existing reports; it does not generate requests or claim rewards.
+# Quest scripts modify existing traffic; they never send progress requests or claim rewards.
 
 [Script]
-discord.enhance.quest.config = type=http-response,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/quests\/@me(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js #!REQUIREMENT "'{{{quest_seconds}}}' != '0'"
-discord.enhance.quest.request = type=http-request,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/(?:quests\/[0-9]+\/video-progress|science)(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js,argument={{{quest_seconds}}} #!REQUIREMENT "'{{{quest_seconds}}}' != '0'"
+discord.enhance.quest.config = type=http-response,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/quests\/@me(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js,argument={{{quest_seconds}}} #!REQUIREMENT "SYSTEM == 'iOS' && '{{{quest_seconds}}}' != '0'"
+discord.enhance.quest.request = type=http-request,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/(?:quests\/[0-9]+\/video-progress|science)(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js,argument={{{quest_seconds}}} #!REQUIREMENT "SYSTEM == 'iOS' && '{{{quest_seconds}}}' != '0'"
 discord.enhance.silent-typing = type=http-request,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/channels\/[0-9]+\/typing(?:\?.*)?$,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/typing.js #!REQUIREMENT "'{{{silent_typing}}}' == 'true'"
 discord.enhance.promotions = type=http-response,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/promotions(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js,argument=hide-nitro-promotions #!REQUIREMENT "'{{{hide_nitro_promotions}}}' == 'true'"
 
+# Surge skips oversized response scripts; max-size=-1 avoids passing original clocks through.
+# Only marked HLS objects are buffered. The script rejects segments over 8 MiB after buffering.
+discord.enhance.quest.media-response = type=http-response,pattern=^https:\/\/cdn\.discordapp\.com\/quests\/[0-9]+\/[0-9]+(?:_[A-Za-z0-9]+)?\.(?:m3u8|ts)\?surge_quest_speed=[0-9.]+&surge_quest_v=1(?:&.*)?$,requires-body=1,binary-body-mode=1,max-size=-1,engine=webview,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/media.js #!REQUIREMENT "SYSTEM == 'iOS' && '{{{quest_seconds}}}' != '0'"
+
+[Header Rewrite]
+# Full marked media objects are required for retiming. No JavaScript request hook.
+http-request ^https:\/\/cdn\.discordapp\.com\/quests\/[0-9]+\/[0-9]+(?:_[A-Za-z0-9]+)?\.(?:m3u8|ts)\?surge_quest_speed=[0-9.]+&surge_quest_v=1(?:&.*)?$ header-del Range #!REQUIREMENT "SYSTEM == 'iOS' && '{{{quest_seconds}}}' != '0'"
+http-request ^https:\/\/cdn\.discordapp\.com\/quests\/[0-9]+\/[0-9]+(?:_[A-Za-z0-9]+)?\.(?:m3u8|ts)\?surge_quest_speed=[0-9.]+&surge_quest_v=1(?:&.*)?$ header-del If-Range #!REQUIREMENT "SYSTEM == 'iOS' && '{{{quest_seconds}}}' != '0'"
+http-request ^https:\/\/cdn\.discordapp\.com\/quests\/[0-9]+\/[0-9]+(?:_[A-Za-z0-9]+)?\.(?:m3u8|ts)\?surge_quest_speed=[0-9.]+&surge_quest_v=1(?:&.*)?$ header-del If-None-Match #!REQUIREMENT "SYSTEM == 'iOS' && '{{{quest_seconds}}}' != '0'"
+http-request ^https:\/\/cdn\.discordapp\.com\/quests\/[0-9]+\/[0-9]+(?:_[A-Za-z0-9]+)?\.(?:m3u8|ts)\?surge_quest_speed=[0-9.]+&surge_quest_v=1(?:&.*)?$ header-del If-Modified-Since #!REQUIREMENT "SYSTEM == 'iOS' && '{{{quest_seconds}}}' != '0'"
+
 [MITM]
-hostname = %APPEND% discord.com
+hostname = %APPEND% discord.com, cdn.discordapp.com
