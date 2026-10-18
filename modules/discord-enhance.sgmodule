@@ -1,0 +1,21 @@
+#!name=Discord Enhance
+#!desc=Suppress outgoing typing and filter Nitro gift-campaign responses. Optional experimental Quest progress rewriting.\nRestart Discord, then open the Quest list. No message, upload, profile, or billing rewrites. Does not unlock native pickers or remove built-in Nitro controls.
+#!category=gholts
+#!arguments=quest_seconds:0,silent_typing:true,typing_default_hidden:true,typing_exceptions:none,hide_nitro_promotions:true
+#!arguments-desc=quest_seconds\n  └ Experimental reported-progress scaling toward a 0–24 second saving; 0 disables. Playback speed stays unchanged. Server acceptance is unverified.\nsilent_typing\n  └ Suppress your outgoing HTTP typing indicator. Other users' indicators remain visible.\ntyping_default_hidden\n  └ true: hide everywhere except listed chats; false: hide only listed chats.\ntyping_exceptions\n  └ DM/channel IDs separated by |, or none.\nhide_nitro_promotions\n  └ Filter Nitro gift campaigns from /promotions. Does not remove the gift button or emoji upsell popups.
+#!requirement=SYSTEM = 'iOS' || SYSTEM = 'macOS'
+
+# Requires a trusted Surge CA, MITM, and Scripting.
+# No message/upload request hooks: body buffering can reject multipart uploads before JS runs.
+# Typing uses the empty 204 response observed in both DM and server captures.
+# Promotion filtering matches premium_promotion.reward_sku_ids; visible UI effects need live testing.
+# Quest rewriting only changes existing reports; it does not generate requests or claim rewards.
+
+[Script]
+discord.enhance.quest.config = type=http-response,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/quests\/@me(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js #!REQUIREMENT "'{{{quest_seconds}}}' != '0'"
+discord.enhance.quest.request = type=http-request,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/(?:quests\/[0-9]+\/video-progress|science)(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js,argument={{{quest_seconds}}} #!REQUIREMENT "'{{{quest_seconds}}}' != '0'"
+discord.enhance.silent-typing = type=http-request,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/channels\/[0-9]+\/typing(?:\?.*)?$,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/typing.js,argument=typing={{{silent_typing}}}&hide={{{typing_default_hidden}}}&except={{{typing_exceptions}}} #!REQUIREMENT "'{{{silent_typing}}}' == 'true'"
+discord.enhance.promotions = type=http-response,pattern=^https:\/\/discord\.com\/api\/v[0-9]+\/promotions(?:\?.*)?$,requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/discord/enhance.js,argument=hide-nitro-promotions #!REQUIREMENT "'{{{hide_nitro_promotions}}}' == 'true'"
+
+[MITM]
+hostname = %APPEND% discord.com
