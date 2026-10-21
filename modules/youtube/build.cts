@@ -3,6 +3,8 @@ const fs: typeof Fs = require("node:fs");
 const path: typeof import("node:path") = require("node:path");
 const vm: typeof import("node:vm") = require("node:vm");
 const os: typeof import("node:os") = require("node:os");
+const { createHash }: typeof import("node:crypto") = require("node:crypto");
+const { minify_sync }: typeof import("terser") = require("terser");
 const {
     spawnSync,
 }: typeof import("node:child_process") = require("node:child_process");
@@ -42,7 +44,16 @@ function read(name: string) {
 }
 const schema = vm.runInNewContext(read("schema") + "\nschema;") as Schema;
 const common = ["storage", "bytes", "wire", "integer"];
-const library = ["quality", "ai", "content", "api-features", "watch", "codec"];
+const controls = ["wire-path", "on-the-go", "on-the-go-resources"];
+const library = [
+    "quality",
+    "ai",
+    ...controls,
+    "content",
+    "api-features",
+    "watch",
+    "codec",
+];
 type Role = "request" | "response" | "key" | "ump";
 const roles: Record<
     Role,
@@ -87,7 +98,14 @@ const roles: Record<
     },
     key: {
         entry: "keyMain",
-        parts: ["storage", "wire", "wire-path", "platform", "key-entry"],
+        parts: [
+            "storage",
+            "recovery",
+            "wire",
+            "wire-path",
+            "platform",
+            "key-entry",
+        ],
     },
     ump: {
         entry: "umpMain",
@@ -101,6 +119,7 @@ const roles: Record<
             "quality-record",
             "quality",
             "ai",
+            ...controls,
             "content",
             "watch",
             "codec",
@@ -157,8 +176,26 @@ function build(role: Role) {
     const chunks = roots
         ? [schemaCode(roots), ...parts.map(read)]
         : parts.map(read);
+    if (role === "response" || role === "ump") {
+        const asset = path.join(dir, "assets/on-the-go");
+        const manifest = JSON.parse(fs.readFileSync(asset + ".json", "utf8"));
+        const resources = fs.readFileSync(asset + ".pb");
+        if (
+            resources.length !== manifest.bytes ||
+            createHash("sha256").update(resources).digest("hex") !==
+                manifest.sha256
+        )
+            throw new Error("On-the-go resource bundle checksum mismatch");
+        chunks.unshift(
+            "const ON_THE_GO_BUNDLE_TEMPLATE = " +
+                JSON.stringify(manifest.rootTemplate) +
+                ";\nconst ON_THE_GO_RESOURCES_BASE64 = " +
+                JSON.stringify(resources.toString("base64")) +
+                ";",
+        );
+    }
     return (
-        "// Generated from modules/youtube/src/; edit fragments, then run npm run build --workspace youtube.\n" +
+        "// Generated from modules/youtube/src/ and assets/; run npm run build --workspace youtube.\n" +
         "(() => {\n" +
         chunks.join("\n\n").replace(/[^\n]+/g, "    $&") +
         "\n\n    " +
@@ -186,7 +223,13 @@ if (require.main === module) {
         }
     }
     for (const role of Object.keys(roles) as Role[]) {
-        const contents = build(role);
+        const { code } = minify_sync(build(role), {
+            ecma: 2022,
+            compress: { passes: 2 },
+            format: { comments: /copyright|@license|@preserve|^!/i },
+        });
+        if (!code) throw new Error("Empty minified script: " + role);
+        const contents = code + "\n";
         new vm.Script(contents, { filename: role + ".js" });
         output(path.join("scripts", "youtube", role + ".js"), contents);
     }

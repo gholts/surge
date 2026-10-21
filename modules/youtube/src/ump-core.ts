@@ -104,11 +104,13 @@ class UmpWriter {
 }
 async function transformUmp(
     body: Uint8Array,
-    key: Uint8Array,
+    keys: Uint8Array[],
     options: Options,
 ) {
-    let crypto:
-        | InstanceType<ReturnType<typeof createUmpPrimitives>["CryptoContext"]>
+    let contexts:
+        | InstanceType<
+              ReturnType<typeof createUmpPrimitives>["CryptoContext"]
+          >[]
         | undefined;
     const envelopeCodec = codec("EncryptedResponsePart");
     const contentCodec = codec("OnesieInnertubeResponse");
@@ -127,17 +129,29 @@ async function transformUmp(
             throw new Error("Malformed encrypted UMP envelope");
         if ((part.compressionAlgorithm ?? 0) > 1)
             throw new Error("Unsupported UMP compression");
-        if (!crypto) {
+        if (!contexts) {
             const { CryptoContext } = createUmpPrimitives();
-            crypto = new CryptoContext(key);
+            contexts = keys.map((key) => new CryptoContext(key));
         }
-        const decrypted = crypto.decrypt(
-            part as Message<"EncryptedResponsePart"> & {
-                encryptedContent: Uint8Array;
-                iv: Uint8Array;
-                hmac: Uint8Array;
-            },
-        );
+        let decrypted: Uint8Array | undefined;
+        let crypto: (typeof contexts)[number] | undefined;
+        for (const candidate of contexts) {
+            try {
+                decrypted = candidate.decrypt(
+                    part as Message<"EncryptedResponsePart"> & {
+                        encryptedContent: Uint8Array;
+                        iv: Uint8Array;
+                        hmac: Uint8Array;
+                    },
+                );
+                crypto = candidate;
+                break;
+            } catch (error) {
+                if ((error as Error).message !== "HMAC verification failed")
+                    throw error;
+            }
+        }
+        if (!decrypted || !crypto) throw new Error("HMAC verification failed");
         const gzipped = decrypted[0] === 31 && decrypted[1] === 139;
         if (part.compressionAlgorithm === 1 && !gzipped)
             throw new Error("Invalid UMP gzip payload");

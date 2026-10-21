@@ -52,6 +52,7 @@ interface WireState {
     unknown?: WireField[];
 }
 interface Options {
+    onTheGo?: boolean;
     autoHd?: boolean;
     blockUpload?: boolean;
     blockShorts?: boolean;
@@ -64,6 +65,7 @@ interface Options {
 interface QualityRecord {
     height: number;
     itags: number[];
+    premiumItags?: number[];
 }
 interface SelectedQuality {
     height: number;
@@ -73,6 +75,7 @@ type Platform = "youtube" | "youtubeMusic";
 interface StoredKeys {
     clientKey?: unknown;
     encryptKey?: unknown;
+    previous?: StoredKeys[];
 }
 interface SurgeRequest {
     url: string;
@@ -108,3 +111,7 @@ type ContentNode = ProtoNode & {
     videoLockup?: Message<"VideoLockup">;
     smartSkipButton?: Message<"SmartSkipButton">;
 };
+
+// Injected by build.cts from the checked generic UI resource bundle.
+declare const ON_THE_GO_BUNDLE_TEMPLATE: string;
+declare const ON_THE_GO_RESOURCES_BASE64: string;

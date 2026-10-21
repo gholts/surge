@@ -87,20 +87,18 @@ function addPremiumSettings(message: Message<"Setting">) {
             ]);
         }
     });
-    if (
-        !message.settingItems.some(
-            (item) => item.backgroundPlayBackSettingRenderer,
-        )
-    ) {
+    const background = message.settingItems.find(
+        (item) => item.backgroundPlayBackSettingRenderer,
+    )?.backgroundPlayBackSettingRenderer;
+    if (background) {
+        changed = setField(background, "backgroundPlayback", true) || changed;
+    } else {
         changed = true;
         setField(message, "settingItems", [
             ...message.settingItems,
             {
                 backgroundPlayBackSettingRenderer: {
                     backgroundPlayback: true,
-                    download: true,
-                    downloadQualitySelection: true,
-                    smartDownload: true,
                     icon: { iconType: 1093 },
                 },
             },

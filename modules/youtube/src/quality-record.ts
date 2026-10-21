@@ -14,6 +14,14 @@ function validQuality(value: unknown): value is QualityRecord {
         record.itags.every(
             (itag) => Number.isInteger(itag) && itag > 0 && itag <= 0xffffffff,
         ) &&
-        new Set(record.itags).size === record.itags.length
+        new Set(record.itags).size === record.itags.length &&
+        (record.premiumItags === undefined ||
+            (Array.isArray(record.premiumItags) &&
+                record.premiumItags.length <= record.itags.length &&
+                new Set(record.premiumItags).size ===
+                    record.premiumItags.length &&
+                record.premiumItags.every((itag) =>
+                    record.itags.includes(itag),
+                )))
     );
 }

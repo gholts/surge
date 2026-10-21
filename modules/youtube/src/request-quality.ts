@@ -14,6 +14,7 @@ function setQuality(bytes: Uint8Array, quality: SelectedQuality | undefined) {
                 : [
                       [16, 4320],
                       [26, 1],
+                      [30, 0],
                   ],
         ),
         seen = new Set<number>(),
@@ -37,6 +38,25 @@ function setQuality(bytes: Uint8Array, quality: SelectedQuality | undefined) {
         }
     return changed ? concatBytes(chunks) : bytes;
 }
+function preferInitialQuality(bytes: Uint8Array) {
+    // OnesieRequest carries ClientAbrState at field 2, before initial media.
+    // Keep the encrypted request and signed configuration byte-for-byte intact.
+    const fields = wireFields(bytes);
+    const states = fields.filter((field) => field.no === 2 && field.wire === 2);
+    if (states.length !== 1) return bytes;
+    const state = states[0];
+    const output = setQuality(state.data, undefined);
+    return output === state.data
+        ? bytes
+        : concatBytes(
+              fields.map((field) =>
+                  field === state
+                      ? concatBytes([varint(18), varint(output.length), output])
+                      : field.raw,
+              ),
+          );
+}
+
 function selectQuality(
     fields: WireField[],
     url: string,
@@ -55,17 +75,25 @@ function selectQuality(
         if (!validQuality(quality)) return;
         // Copy complete IDs from this request's allowed list; never invent an
         // itag, timestamp, tag or authorization, nor modify the signed config.
-        const formats = wireFields(signed)
-            .filter((field) => {
-                if (field.no !== 6 || field.wire !== 2) return false;
-                const itag = wireFields(field.data).find(
-                    (field) => field.no === 1 && field.wire === 0,
-                );
-                if (!itag) return false;
-                return quality.itags.includes(readInteger(itag.data));
-            })
-            .map((field) => field.data);
-        return formats.length ? { height: quality.height, formats } : undefined;
+        const formats: Uint8Array[] = [],
+            premium: Uint8Array[] = [];
+        for (const field of wireFields(signed)) {
+            if (field.no !== 6 || field.wire !== 2) continue;
+            const itag = wireFields(field.data).find(
+                (field) => field.no === 1 && field.wire === 0,
+            );
+            if (!itag) continue;
+            const id = readInteger(itag.data);
+            if (!quality.itags.includes(id)) continue;
+            formats.push(field.data);
+            if (quality.premiumItags?.includes(id)) premium.push(field.data);
+        }
+        return formats.length
+            ? {
+                  height: quality.height,
+                  formats: premium.length ? premium : formats,
+              }
+            : undefined;
     } catch {
         return undefined;
     }

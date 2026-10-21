@@ -21,7 +21,7 @@ function keyMain() {
         ) {
             const platform = platformKey($request),
                 config = readConfig();
-            const value = {
+            const value: StoredKeys = {
                 clientKey: clientKey.toBase64(),
                 encryptKey: encryptKey.toBase64(),
             };
@@ -31,6 +31,20 @@ function keyMain() {
                 (config[platform] as StoredKeys | undefined)?.encryptKey !==
                     value.encryptKey
             ) {
+                const previous = keyCandidates(
+                    config[platform] as StoredKeys | undefined,
+                )
+                    .filter(
+                        (pair) =>
+                            pair.clientKey !== value.clientKey ||
+                            pair.encryptKey !== value.encryptKey,
+                    )
+                    .slice(0, 3)
+                    .map(({ clientKey, encryptKey }) => ({
+                        clientKey,
+                        encryptKey,
+                    }));
+                if (previous.length) value.previous = previous;
                 config[platform] = value;
                 if (!writeConfig(config))
                     console.log("YouTube key write failed");

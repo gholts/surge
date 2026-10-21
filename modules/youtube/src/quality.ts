@@ -3,7 +3,9 @@ function sameQuality(a: QualityRecord | undefined, b: QualityRecord) {
         a !== undefined &&
         a.height === b.height &&
         a.itags.length === b.itags.length &&
-        b.itags.every((itag) => a.itags.includes(itag))
+        b.itags.every((itag) => a.itags.includes(itag)) &&
+        (a.premiumItags?.length ?? 0) === (b.premiumItags?.length ?? 0) &&
+        (b.premiumItags ?? []).every((itag) => a.premiumItags?.includes(itag))
     );
 }
 
@@ -36,7 +38,10 @@ function cacheQuality(players: Message<"Player">[]) {
             continue;
         }
         cache[id] = { height: record.height, itags: record.itags };
-        if (Object.keys(record).length !== 2) changed = true;
+        if (record.premiumItags?.length)
+            cache[id].premiumItags = record.premiumItags;
+        if (Object.keys(record).length !== Object.keys(cache[id]).length)
+            changed = true;
     }
     for (const stream of streams) {
         try {
@@ -77,6 +82,7 @@ function cacheQuality(players: Message<"Player">[]) {
                 if (height > quality.height) {
                     quality.height = height;
                     quality.itags = [];
+                    delete quality.premiumItags;
                     itags.clear();
                     overflow = false;
                 }
@@ -87,6 +93,11 @@ function cacheQuality(players: Message<"Player">[]) {
                 }
                 itags.add(itag);
                 quality.itags.push(itag);
+                const label = format.find(
+                    (field) => field.no === 26 && field.wire === 2,
+                );
+                if (label && /\bPremium\b/i.test(utf8.decode(label.data)))
+                    (quality.premiumItags ??= []).push(itag);
             }
             if (
                 overflow ||

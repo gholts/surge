@@ -10,7 +10,7 @@ const STORE_TAB = textEncoder.encode("store");
 const LIVE_BADGE = textEncoder.encode("youtube_outline_experimental/live_24pt");
 const IMMERSIVE_LIVE = textEncoder.encode("immersive_live");
 const PREMIUM_BROWSE_ID = textEncoder.encode("SPunlimited");
-function containsMarker(bytes: Uint8Array, marker = AD_TRACKING) {
+function containsMarker(bytes: Uint8Array, marker: Uint8Array = AD_TRACKING) {
     if (!marker.length) return true;
     const end = bytes.length - marker.length;
     let probes = 0,
@@ -138,9 +138,16 @@ function transformContent(
         jumpAhead = true,
         blockStore = true,
         blockAi = true,
+        onTheGo = true,
     }: Options = {},
 ) {
     let changed = transformMenus(message);
+    if (onTheGo)
+        try {
+            changed = enableOnTheGo(message as Message<"Next">) || changed;
+        } catch (error) {
+            console.log("YouTube On-the-go: " + error);
+        }
     const BLOCKED = 1,
         EMPTY = 2;
     const filtered = new Set(["richItemContents", "overlays"]);

@@ -16,21 +16,21 @@ async function umpMain() {
             return $done();
         platform = platformKey($request);
         expected = readConfig()[platform] as StoredKeys | undefined;
-        const clientKey = expected?.clientKey;
-        if (!clientKey)
-            throw new Error("YouTubeConfig requires stored clientKey");
-        let key;
-        try {
-            if (typeof clientKey !== "string")
-                throw new Error("Invalid stored clientKey");
-            key = decodeBase64(clientKey);
-            if (key.length < 16) throw new Error("Invalid stored clientKey");
-        } catch (error) {
-            invalidStoredKey = true;
-            throw error;
+        const keys: Uint8Array[] = [];
+        for (const pair of keyCandidates(expected)) {
+            try {
+                const key = decodeBase64(pair.clientKey as string);
+                if (key.length >= 16) keys.push(key);
+            } catch {
+                // Other saved keys may still authenticate this response.
+            }
+        }
+        if (!keys.length) {
+            invalidStoredKey = expected !== undefined;
+            throw new Error("YouTubeConfig requires a valid stored clientKey");
         }
         const options = readOptions({ blockGames: true });
-        const result = await transformUmp($response.body, key, options);
+        const result = await transformUmp($response.body, keys, options);
         if (options.autoHd !== false) cacheQuality(result.players);
         $done(
             result.body === $response.body ? undefined : { body: result.body },

@@ -84,6 +84,7 @@ const schema = {
         [8, "onResponseReceivedAction", "BrowseContent"],
         [14, "playerOverlays", "PlayerOverlays"],
         [25, "engagementPanels", "EngagementPanel", true],
+        [777, "frameworkUpdates", "bytes"],
     ],
     EngagementPanel: [[138681066, "renderer", "EngagementPanelRenderer"]],
     EngagementPanelRenderer: [[3, "content", "BrowseContent"]],
@@ -175,9 +176,6 @@ const schema = {
     ],
     BackgroundPlayBackSettingRenderer: [
         [2, "backgroundPlayback", "bool"],
-        [3, "download", "bool"],
-        [9, "downloadQualitySelection", "bool"],
-        [10, "smartDownload", "bool"],
         [14, "icon", "Icon"],
     ],
     Icon: [[1, "iconType", "uint"]],

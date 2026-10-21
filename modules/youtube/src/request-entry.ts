@@ -8,12 +8,21 @@ function requestMain() {
             result = prepareLogEvent($request);
         else if (path.endsWith("/initplayback")) {
             // Redirect discovery uses bodyless GETs on the same endpoint.
-            if ($request.method !== "GET" && $request.method !== "HEAD")
-                result = preparePlayback($request.body, platformKey($request));
+            if ($request.method !== "GET" && $request.method !== "HEAD") {
+                const body = binaryRequestBody($request);
+                result = preparePlayback(body, platformKey($request));
+                if (!result && body?.length && readOptions().autoHd !== false) {
+                    const output = preferInitialQuality(body);
+                    if (output !== body) result = { body: output };
+                }
+            }
         } else if (path.endsWith("/videoplayback")) {
+            const options = readOptions();
             const body =
-                readOptions().autoHd === false ? undefined : $request.body;
-            if (body instanceof Uint8Array && body.length) {
+                options.autoHd === false
+                    ? undefined
+                    : binaryRequestBody($request);
+            if (body?.length) {
                 const output = forceHighestQuality(body, $request.url);
                 if (output !== body) result = { body: output };
             }
@@ -25,6 +34,21 @@ function requestMain() {
             $done(emptyPlayback());
         } else $done();
     }
+}
+function binaryRequestBody(request: SurgeRequest) {
+    const body = request.body;
+    // Native JSC byte views need not share the script's Uint8Array constructor.
+    if (ArrayBuffer.isView(body))
+        return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+    if (body?.length)
+        throw new Error("YouTube requires binary-body-mode for request bodies");
+    const length = Object.entries(request.headers ?? {}).find(
+        ([name]) => name.toLowerCase() === "content-length",
+    )?.[1];
+    if (Number(length) > 0)
+        throw new Error(
+            "YouTube request body unavailable; requires-body must be enabled",
+        );
 }
 function emptyPlayback() {
     return {
@@ -50,29 +74,22 @@ function prepareLogEvent(request: SurgeRequest): SurgeResult | undefined {
     return { headers };
 }
 function preparePlayback(
-    body: SurgeRequest["body"],
+    body: Uint8Array | undefined,
     platform: Platform,
 ): SurgeResult | undefined {
     if (body === undefined || body.length === 0) return;
-    const expected = readConfig()[platform] as StoredKeys | undefined,
-        storedKey = expected?.encryptKey;
-    let key;
-    try {
-        if (storedKey) {
-            if (typeof storedKey !== "string")
-                throw new Error("Invalid stored encryptKey");
-            key = decodeBase64(storedKey);
-        }
-    } catch (error) {
-        clearKeys(platform, expected);
-        throw error;
-    }
-    if (!(body instanceof Uint8Array))
-        throw new Error("Playback requires binary body");
+    const expected = readConfig()[platform] as StoredKeys | undefined;
     const encrypted = bytesField(body, 3);
     const clientKey = encrypted && bytesField(encrypted, 5);
     if (!clientKey?.length) return emptyPlayback();
-    if (key && sameBytes(clientKey, key)) return;
+    for (const pair of keyCandidates(expected)) {
+        try {
+            if (sameBytes(clientKey, decodeBase64(pair.encryptKey as string)))
+                return;
+        } catch {
+            // A malformed entry must not discard another in-flight key.
+        }
+    }
     clearKeys(platform, expected);
     return emptyPlayback();
 }
