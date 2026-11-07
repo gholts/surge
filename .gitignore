@@ -1,0 +1,10 @@
+# Tests stay local.
+test/
+tests/
+__tests__/
+test.*
+*.test.*
+*.spec.*
+coverage/
+test-results/
+playwright-report/
