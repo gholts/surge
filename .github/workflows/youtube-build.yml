@@ -1,4 +1,4 @@
-name: Build YouTube products
+name: Build Surge products
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: youtube-products
+  group: surge-products
   cancel-in-progress: false
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
           package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run format:check
-      - run: npm run build --workspace youtube
+      - run: npm run build
       - uses: actions/checkout@v7
         with:
           ref: main
@@ -44,13 +44,11 @@ jobs:
             echo "Skip superseded build $BUILD_SHA"
             exit 0
           fi
-          for file in request response key ump; do
-            cp "../source/dist/scripts/youtube/$file.js" "scripts/youtube/$file.js"
-          done
-          cp ../source/dist/modules/youtube-enhance.sgmodule modules/youtube-enhance.sgmodule
-          git add scripts/youtube/request.js scripts/youtube/response.js scripts/youtube/key.js scripts/youtube/ump.js modules/youtube-enhance.sgmodule
+          cp -R ../source/dist/scripts/. scripts/
+          cp ../source/dist/modules/*.sgmodule modules/
+          git add scripts modules
           if git diff --cached --quiet; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m "Build YouTube products from $BUILD_SHA"
+          git commit -m "Build Surge products from $BUILD_SHA"
           git push origin HEAD:main
