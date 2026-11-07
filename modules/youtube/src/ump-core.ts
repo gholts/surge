@@ -223,7 +223,7 @@ async function transformGzip(bytes: Uint8Array, decompress: boolean) {
     } catch (error) {
         await Promise.allSettled([reader.cancel(error), writer.abort(error)]);
         // Native ungzip only returns the first gzip member on iOS. Never
-        // rewrite a partial response; let umpMain trigger playback fallback.
+        // rewrite a partial response; let umpMain pass through the original.
         throw error;
     } finally {
         reader.releaseLock();

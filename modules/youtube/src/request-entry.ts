@@ -1,7 +1,6 @@
 function requestMain() {
-    let path: string | undefined;
     try {
-        path = $request.url.split("?")[0];
+        const path = $request.url.split("?")[0];
         let result: SurgeResult | undefined;
         if (path.endsWith("/player/ad_break")) result = emptyPlayback();
         else if (path.endsWith("/log_event"))
@@ -10,8 +9,11 @@ function requestMain() {
             // Redirect discovery uses bodyless GETs on the same endpoint.
             if ($request.method !== "GET" && $request.method !== "HEAD") {
                 const body = binaryRequestBody($request);
-                result = preparePlayback(body, platformKey($request));
-                if (!result && body?.length && readOptions().autoHd !== false) {
+                if (
+                    body?.length &&
+                    checkPlaybackKey(body, platformKey($request)) &&
+                    readOptions().autoHd !== false
+                ) {
                     const output = preferInitialQuality(body);
                     if (output !== body) result = { body: output };
                 }
@@ -30,9 +32,7 @@ function requestMain() {
         $done(result);
     } catch (error) {
         console.log("YouTube request: " + error);
-        if (path?.endsWith("/initplayback")) {
-            $done(emptyPlayback());
-        } else $done();
+        $done();
     }
 }
 function binaryRequestBody(request: SurgeRequest) {
@@ -73,23 +73,19 @@ function prepareLogEvent(request: SurgeRequest): SurgeResult | undefined {
     for (const name of names) delete headers[name];
     return { headers };
 }
-function preparePlayback(
-    body: Uint8Array | undefined,
-    platform: Platform,
-): SurgeResult | undefined {
-    if (body === undefined || body.length === 0) return;
-    const expected = readConfig()[platform] as StoredKeys | undefined;
+function checkPlaybackKey(body: Uint8Array, platform: Platform) {
     const encrypted = bytesField(body, 3);
-    const clientKey = encrypted && bytesField(encrypted, 5);
-    if (!clientKey?.length) return emptyPlayback();
+    const encryptKey = encrypted && bytesField(encrypted, 5);
+    if (!encryptKey?.length) return false;
+    const expected = readConfig()[platform] as StoredKeys | undefined;
     for (const pair of keyCandidates(expected)) {
         try {
-            if (sameBytes(clientKey, decodeBase64(pair.encryptKey as string)))
-                return;
+            if (sameBytes(encryptKey, decodeBase64(pair.encryptKey as string)))
+                return true;
         } catch {
             // A malformed entry must not discard another in-flight key.
         }
     }
     clearKeys(platform, expected);
-    return emptyPlayback();
+    return false;
 }
