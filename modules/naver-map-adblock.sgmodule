@@ -1,0 +1,31 @@
+#!name=Naver Map AdBlock
+#!desc=Remove splash/search ads, sponsored markers, banners and marketing popups. Requires HTTPS decryption.
+#!category=gholts
+#!arguments=block_tracking:true
+#!arguments-desc=block_tracking\n  └ Block captured Naver Map analytics, AppsFlyer and Braze marketing traffic
+#!requirement=SYSTEM = 'iOS'
+
+[Rule]
+DOMAIN,nam.veta.naver.com,REJECT
+DOMAIN,siape.veta.naver.com,REJECT
+DOMAIN,ader.naver.com,REJECT
+DOMAIN,tivan.naver.com,REJECT
+DOMAIN,naverpa-phinf.pstatic.net,REJECT
+DOMAIN,searchad-phinf.pstatic.net,REJECT
+DOMAIN,nlog.naver.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+DOMAIN,ntm.pstatic.net,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+DOMAIN,rhqdlj.inapps.appsflyersdk.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+DOMAIN,rhqdlj.launches.appsflyersdk.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+DOMAIN,sdk.iad-07.braze.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+DOMAIN,dust.iad-07.braze.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+
+[URL Rewrite]
+^https:\/\/ssl\.pstatic\.net\/(?:melona|tveta|adimg3\.search)\/ _ reject
+^https:\/\/search\.pstatic\.net\/common\/\?(?:[^&]*&)*src=[^&]*(?:searchad-phinf|naverpa-phinf)\.pstatic\.net _ reject
+
+[Script]
+naver-map.adblock.empty = type=http-request,pattern=^https:\/\/(?:apis\.naver\.com\/mapmobileapps\/maps-service\/v1\/ads\/common-marker|mobility-tab\.map\.naver\.com\/v1\/mobility-tab\/banners)(?:\?|$),engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/naver-map/request.js
+naver-map.adblock.response = type=http-response,pattern=^https:\/\/(?:apis\.naver\.com\/mapmobileapps\/(?:maps-service\/v1\/(?:explore-tab\/(?:meta|components\/saveList-marketing-[^?\/]+)|bubble-keywords)|maps-cmdo\/v1\/maps-app\/props|maps-search\/allSearch)|(?:porta\.io|maps-service-graph\.io|nmap-api\.place)\.naver\.com\/graphql|svc-api\.map\.naver\.com\/v1\/(?:maps-event-popup\/popups|ads\/brand-marker)|nmap\.place\.naver\.com\/[^?\/]+\/list)(?:\?|$),requires-body=1,max-size=2097152,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/naver-map/response.js
+
+[MITM]
+hostname = %APPEND% apis.naver.com, svc-api.map.naver.com, mobility-tab.map.naver.com, porta.io.naver.com, maps-service-graph.io.naver.com, nmap-api.place.naver.com, nmap.place.naver.com, ssl.pstatic.net, search.pstatic.net
