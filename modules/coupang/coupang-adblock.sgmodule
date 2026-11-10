@@ -1,0 +1,24 @@
+#!name=Coupang AdBlock
+#!desc=Remove captured Coupang and Coupang Eats sponsored listings, video ads, banners, splash ads and marketing popups. Requires HTTPS decryption.
+#!category=gholts
+#!arguments=block_tracking:true
+#!arguments-desc=block_tracking\n  └ Block captured Coupang analytics, experiment tracking and Branch event reporting; retain Branch deep-link initialization
+#!requirement=SYSTEM = 'iOS'
+
+[Rule]
+DOMAIN,eats-ads-event-capture.coupang.com,REJECT
+DOMAIN,bpa-sdk.coupang.com,REJECT
+DOMAIN,ljc.coupang.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+DOMAIN,mercury.coupang.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+
+[URL Rewrite]
+^https:\/\/cmapi\.coupang\.com\/(?:v3\/abtest\/tracking|modular\/v1\/endpoints\/\d+\/ff\/v1\/featureFlag\/batchTracking)(?:\?|$) - reject #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+^https:\/\/api\.coupangeats\.com\/(?:abtest\/v1\/customer\/log|endpoint\/store\.track_ff)(?:\?|$) - reject #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+
+[Script]
+coupang.adblock.tracking = type=http-request,pattern=^https:\/\/api[23]\.branch\.io\/v2\/event\/standard(?:\?|$),engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/coupang/request.js #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+coupang.adblock.empty = type=http-request,pattern=^https:\/\/(?:cmapi\.coupang\.com\/modular\/v1\/endpoints\/\d+\/(?:template-ad|splash-screen|search-home\/banner|lapse-promotion-widget-data|promotion-header-nudging)|mc\.coupang\.com\/ssr\/api\/(?:ad\/banner|wowcard\/ccm)|(?:api\.coupangeats\.com\/endpoint\/|eats-mobile-web\.coupang\.com\/api\/v[12]\/endpoint\/)(?:ads\.splash_screen|store\.(?:get_bottom_banner_info|get_search_home_marketing_banner)|campaign\.get_mobile_triggers))(?:\?|$),engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/coupang/request.js
+coupang.adblock.response = type=http-response,pattern=^https:\/\/(?:cmapi\.coupang\.com\/(?:v3\/(?:products|categories\/home)|modular\/v1\/(?:pages\/(?:32\/home\/main|43\/search-home|1\/link-categories\/components\/\d+)|endpoints\/\d+\/(?:recommendation\/feeds|similar-product|sdp\/v2\/platform\/products\/\d+)))|m\.coupang\.com\/(?:dco\/api\/v2\/dco-contents|vm\/products\/\d+\/brand-sdp-node\/items\/\d+\/)|api\.coupangeats\.com\/(?:meta\/intro|endpoint\/store\.(?:get_gateway|get_search|get_clp|get_gold_box_info|get_search_home|get_gateway_notification(?:_v5)?|top_bar))|eats-mobile-web\.coupang\.com\/(?:api\/v[12]\/endpoint\/store\.(?:get_gateway|get_search|get_clp|get_gold_box_info|get_search_home|get_gateway_notification(?:_v5)?|top_bar))?)(?:\?|$),requires-body=1,max-size=4194304,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/coupang/response.js
+
+[MITM]
+hostname = %APPEND% cmapi.coupang.com, m.coupang.com, mc.coupang.com, api.coupangeats.com, eats-mobile-web.coupang.com, api2.branch.io, api3.branch.io
