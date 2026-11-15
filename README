@@ -1,0 +1,21 @@
+MODULES
+
+    This repo is only used for archiving Surge modules I'm
+    maintaining. Modules are either fully made by me or
+    branched off from others' work, with licensing information
+    included.
+
+
+HOSTING
+
+    For general use, you can access all the files directly
+    on GitHub, including their source code under the Build
+    branch. But due to GitHub's limitations, it's not ideal
+    for frequent access if you want to stay up to date.
+
+    For that reason, everything is also hosted on Cloudflare
+    Pages and automatically updated too! You can access it at:
+
+        https://blob.proxies.foo
+
+    It's more stable and easier too to access.
