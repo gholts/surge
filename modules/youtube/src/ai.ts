@@ -53,20 +53,27 @@ function removeAiActionBar(bytes: Uint8Array) {
 }
 
 function removeAiQuickActions(bytes: Uint8Array) {
-    return rewriteAiFields(bytes, 10, (button) =>
-        aiPathMatches(button, [15, 461054335, 4, 169495254, 138681778, 1])
-            ? undefined
-            : rewriteBinaryPath(button, [6], (menu) =>
-                  rewriteAiFields(menu, 3, (item) =>
-                      aiPathMatches(
-                          item,
-                          [4, 16, 461054335, 4, 169495254, 138681778, 1],
-                      )
-                          ? undefined
-                          : item,
-                  ),
-              ),
-    );
+    return rewriteAiFields(bytes, 10, (button) => {
+        if (aiPathMatches(button, [15, 461054335, 4, 169495254, 138681778, 1]))
+            return;
+        const primary = rewriteBinaryPath(button, [15, 37098], (menu) =>
+            rewriteAiFields(menu, 3, (item) =>
+                aiPathMatches(item, [461054335, 4, 169495254, 138681778, 1])
+                    ? undefined
+                    : item,
+            ),
+        );
+        return rewriteBinaryPath(primary, [6], (menu) =>
+            rewriteAiFields(menu, 3, (item) =>
+                aiPathMatches(
+                    item,
+                    [4, 16, 461054335, 4, 169495254, 138681778, 1],
+                )
+                    ? undefined
+                    : item,
+            ),
+        );
+    });
 }
 
 function removeAiCarousel(bytes: Uint8Array) {
@@ -137,6 +144,11 @@ function removeAiElement(bytes: Uint8Array) {
             );
             result = rewriteBinaryPath(result, [413471385, 1], (data) =>
                 rewriteAiFields(data, 2185, removeAiActionBar),
+            );
+            result = rewriteBinaryPath(
+                result,
+                [389155117, 17],
+                removeAiActionBar,
             );
             return rewriteAiFields(result, 408379376, removeAiCarousel);
         },

@@ -379,16 +379,14 @@ function enableOnTheGo(message: Message<"Next">) {
     const overlay = message.playerOverlays?.renderer;
     if (!overlay?.overflowMenu || !Array.isArray(message.engagementPanels))
         return false;
-    if (
-        message.engagementPanels.some(
-            (p) => panelIdentifier(p) === ON_THE_GO_ID,
-        )
-    )
-        return false;
+    let panel = message.engagementPanels.find(
+        (p) => panelIdentifier(p) === ON_THE_GO_ID,
+    );
     const menu = binaryAt(overlay.overflowMenu, [66439850]);
     if (!menu) return false;
     const fields = wireFields(menu);
     let source: Uint8Array | undefined, speed: Uint8Array | undefined;
+    let replacement: number | undefined;
     let insertion = fields.length;
     for (const [index, item] of fields.entries()) {
         if (item.no !== 1 || item.wire !== 2) continue;
@@ -396,7 +394,13 @@ function enableOnTheGo(message: Message<"Next">) {
         const state = model && bytesField(model, 10, true);
         if (!model || !state) continue;
         const id = utf8.decode(state);
-        if (id === ON_THE_GO_MENU_ID) return false;
+        if (id === ON_THE_GO_MENU_ID) {
+            // Native entries can advertise the feature but open a Premium offer.
+            if (!containsMarker(model, textEncoder.encode("PApremium_upsell")))
+                return false;
+            replacement = index;
+            source = item.data;
+        }
         if (id.endsWith("/menu_item_additional_settings")) insertion = index;
         source ??= item.data;
         if (id.endsWith("/menu_item_playback_speed")) {
@@ -410,11 +414,13 @@ function enableOnTheGo(message: Message<"Next">) {
                         speed = command.data;
         }
     }
-    if (!source) return false;
-    const resources = prepareOnTheGoResources(message);
-    if (!resources) return false;
-    const panel = makeOnTheGoPanel(message, source, resources.template, speed);
-    if (!panel) return false;
+    if (!source || (panel && replacement === undefined)) return false;
+    const resources = panel ? undefined : prepareOnTheGoResources(message);
+    if (!panel) {
+        if (!resources) return false;
+        panel = makeOnTheGoPanel(message, source, resources.template, speed);
+        if (!panel) return false;
+    }
     let entry = rewriteBinaryPath(source, MENU_MODEL_PATH, (model) =>
         concatBytes([
             ...wireFields(model)
@@ -441,11 +447,20 @@ function enableOnTheGo(message: Message<"Next">) {
         textEncoder.encode("menu_item_on_the_go"),
     );
     const chunks = fields.map((field) => field.raw);
-    chunks.splice(insertion, 0, nativeField(1, entry));
+    chunks.splice(
+        replacement ?? insertion,
+        replacement === undefined ? 0 : 1,
+        nativeField(1, entry),
+    );
     const output = rewriteBinaryPath(overlay.overflowMenu, [66439850], () =>
         concatBytes(chunks),
     );
-    setField(message, "frameworkUpdates", resources.framework);
-    setField(message, "engagementPanels", [...message.engagementPanels, panel]);
+    if (resources) {
+        setField(message, "frameworkUpdates", resources.framework);
+        setField(message, "engagementPanels", [
+            ...message.engagementPanels,
+            panel,
+        ]);
+    }
     return setField(overlay, "overflowMenu", output);
 }
