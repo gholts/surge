@@ -1,0 +1,22 @@
+#!name=Ele.me AdBlock
+#!version=2026.11.15.2
+#!desc=Remove captured Ele.me splash ads, sponsored restaurants, feed banners, home promotions and automatic marketing triggers. Requires HTTPS decryption.
+#!category=gholts
+#!arguments=block_tracking:true,lite_home:false
+#!arguments-desc=block_tracking\n  └ Block Ele.me analytics uploads; answer captured analytics pixels and daily reports locally\nlite_home\n  └ Also remove the home subsidy/recommendation panel to reduce UI data and rendering work
+#!requirement=SYSTEM = 'iOS'
+
+[Rule]
+DOMAIN,h-adashx.ut.ele.me,REJECT,pre-matching #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+
+[Map Local]
+^https:\/\/waimai-guide\.ele\.me\/gw\/mtop\.alsc\.eleme\.bootup\.screen\.data\.get\/1\.0\/?(?:\?|$) data-type=text data="{\"api\":\"mtop.alsc.eleme.bootup.screen.data.get\",\"data\":{\"code\":0,\"data\":{\"fields\":{}},\"message\":\"SUCCESS\"},\"ret\":[\"SUCCESS::调用成功\"],\"v\":\"1.0\"}" header="Content-Type:application/json; charset=utf-8"
+^https:\/\/waimai-guide\.ele\.me\/gw\/mtop\.alsc\.miniapp\.dailyreport\/1\.0\/?(?:\?|$) data-type=text data="{\"api\":\"mtop.alsc.miniapp.dailyreport\",\"data\":{\"result\":true},\"ret\":[\"SUCCESS::调用成功\"],\"v\":\"1.0\"}" header="Content-Type:application/json; charset=utf-8" #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+
+[Script]
+eleme.adblock.tracking = type=http-request,pattern=^https?:\/\/(?:s-gm\.mmstat\.com\/arms\.1\.1|wgo\.mmstat\.com\/minitrade\.1\.200\.2)(?:\?|$),binary-body-mode=1,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/eleme/request.js #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+eleme.adblock.response = type=http-response,pattern=^https:\/\/waimai-guide\.ele\.me\/gw\/mtop\.alsc\.eleme\.(?:miniapp\.homepagev1(?:\.meishi)?|trigger\.opportunity\.query)\/1\.0\/?(?:\?|$),requires-body=1,max-size=2097152,engine=jsc,argument="{{{lite_home}}}",script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/eleme/response.js
+
+[MITM]
+hostname = %APPEND% waimai-guide.ele.me, s-gm.mmstat.com, wgo.mmstat.com #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
+hostname = %APPEND% waimai-guide.ele.me #!REQUIREMENT "'{{{block_tracking}}}' != 'true'"
