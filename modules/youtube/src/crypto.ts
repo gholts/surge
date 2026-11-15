@@ -238,7 +238,6 @@ function createUmpPrimitives() {
     function rotr(word: number, shift: number) {
         return (word << (32 - shift)) | (word >>> shift);
     }
-    // SHA-2 base
     function Chi(a: number, b: number, c: number) {
         return (a & b) ^ (~a & c);
     }
@@ -250,7 +249,6 @@ function createUmpPrimitives() {
         528734635, 1541459225,
     ]);
 
-    // SHA-2
     var SHA256_K = /* @__PURE__ */ Uint32Array.from([
             1116352408, 1899447441, 3049323471, 3921009573, 961987163,
             1508970993, 2453635748, 2870763221, 3624381080, 310598401,
@@ -404,7 +402,7 @@ function createUmpPrimitives() {
                     : this.hmacKey,
             );
             for (let i = 0; i < pad.length; i++) pad[i] ^= 54;
-            // Feed ciphertext and IV separately; avoid copying the complete payload.
+            // Feed ciphertext and IV separately to avoid a payload copy.
             const inner = new SHA256()
                 .update(pad)
                 .update(content)

@@ -5,7 +5,7 @@ async function umpMain() {
     try {
         const status = Number($response.status);
         if (status >= 300 || !$response.body?.length) return $done();
-        // initplayback also returns redirect URLs and HTTP error documents.
+        // initplayback may return redirect URLs or HTTP error documents.
         const contentType = Object.entries($response.headers ?? {}).find(
             ([name]) => name.toLowerCase() === "content-type",
         )?.[1];
@@ -22,7 +22,7 @@ async function umpMain() {
                 const key = decodeBase64(pair.clientKey as string);
                 if (key.length >= 16) keys.push(key);
             } catch {
-                // Other saved keys may still authenticate this response.
+                // Try remaining saved keys.
             }
         }
         if (!keys.length) {

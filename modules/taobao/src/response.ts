@@ -44,8 +44,7 @@ function cleanPopups(): void {
             }
         }
         if (!removed.size) return $done({});
-        // Scene lists reference campaign IDs. Remove only deleted references;
-        // retain account binding, consent, refund and other functional dialogs.
+        // Scene lists contain campaign IDs; remove deleted references only.
         for (const scene of Object.keys(data.sc)) {
             const ids = data.sc[scene];
             if (Array.isArray(ids))

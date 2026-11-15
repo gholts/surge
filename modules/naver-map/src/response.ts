@@ -43,7 +43,7 @@ function clean(value: any): any {
     return value;
 }
 
-// Read only JSON literals, never execute scripts from a page.
+// Parse JSON only; never evaluate page scripts.
 function rewriteLiteral(body: string, pattern: RegExp): string {
     return body.replace(pattern, (match, prefix: string, literal: string) => {
         try {
@@ -65,12 +65,12 @@ function cleanHtml(body: string): string {
         body,
         /(window\.__APOLLO_STATE__\s*=\s*)(\{[\s\S]*?\})(?=;\s*window\.__PLACE_STATE__\s*=)/g,
     );
-    // This list also supplies native map markers through MapsJsBridge.
+    // MapsJsBridge also uses this list for native markers.
     body = rewriteLiteral(
         body,
         /(\bvar list\s*=\s*)(\[[\s\S]*?\])(?=;?\s*var options\s*=)/g,
     );
-    // Track nesting so a sponsored row containing lists is removed completely.
+    // Include nested lists when removing sponsored rows.
     const stack: { start: number; ad: boolean }[] = [];
     const ranges: [number, number][] = [];
     for (const tag of body.matchAll(
@@ -88,7 +88,7 @@ function cleanHtml(body: string): string {
         if (!row?.ad) continue;
         const start = row.start;
         const end = tag.index + tag[0].length;
-        // An outer sponsored row subsumes any nested ranges.
+        // Outer rows include nested ranges.
         while (ranges.length && ranges[ranges.length - 1][0] >= start)
             ranges.pop();
         ranges.push([start, end]);

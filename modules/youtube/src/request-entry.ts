@@ -6,7 +6,7 @@ function requestMain() {
         else if (path.endsWith("/log_event"))
             result = prepareLogEvent($request);
         else if (path.endsWith("/initplayback")) {
-            // Redirect discovery uses bodyless GETs on the same endpoint.
+            // Redirect discovery uses bodyless GETs.
             if ($request.method !== "GET" && $request.method !== "HEAD") {
                 const body = binaryRequestBody($request);
                 if (
@@ -37,7 +37,7 @@ function requestMain() {
 }
 function binaryRequestBody(request: SurgeRequest) {
     const body = request.body;
-    // Native JSC byte views need not share the script's Uint8Array constructor.
+    // JSC byte views may use another Uint8Array constructor.
     if (ArrayBuffer.isView(body))
         return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
     if (body?.length)
@@ -83,7 +83,7 @@ function checkPlaybackKey(body: Uint8Array, platform: Platform) {
             if (sameBytes(encryptKey, decodeBase64(pair.encryptKey as string)))
                 return true;
         } catch {
-            // A malformed entry must not discard another in-flight key.
+            // Keep other in-flight keys when one entry is malformed.
         }
     }
     clearKeys(platform, expected);

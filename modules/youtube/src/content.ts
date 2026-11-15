@@ -1,6 +1,6 @@
 const AD_LAYOUT =
     /^(?:inline_injection_entrypoint_layout|video_display_button_group_layout|full_width_portrait_image_layout|full_width_square_image_layout|video_display_full_buttoned_layout)\.eml(?:-js)?(?:-fe)?$/;
-// Match active shopping components, not product words in titles or URLs.
+// Match shopping components, not titles or URLs.
 const SHOPPING_LAYOUT =
     /^(?:shopping_|products?_in_video_)[a-z0-9_]+\.eml(?:-js)?(?:-fe)?$/;
 const AD_TRACKING = textEncoder.encode("/pagead/");
@@ -28,7 +28,7 @@ function containsMarker(bytes: Uint8Array, marker: Uint8Array = AD_TRACKING) {
             }
         if (matched) return true;
         if (++probes === 8) {
-            // Native search wins for sparse candidates; dense prefixes favor direct scanning.
+            // Sparse candidates: native search. Dense prefixes: direct scan.
             if (i - windowStart < 256)
                 return scanMarkerTail(bytes, marker, i + 1);
             windowStart = i;
@@ -49,7 +49,7 @@ function hasVerticalLiveTarget(lockup: Message<"VideoLockup">) {
     let bytes = unknownFields(lockup).find(
         (field) => field.no === 18 && field.wire === 2,
     )?.data;
-    // Primary tap target only; a channel avatar may link to a different live.
+    // Use primary tap target; avatars may link to another live stream.
     try {
         for (const no of [4, 169495254, 462702848, 1, 139608561, 50, 7, 3]) {
             if (!bytes) return false;
@@ -76,14 +76,14 @@ function isStoreTab(item: ProtoValue) {
     }
 }
 function isPremiumBanner(bytes: Uint8Array) {
-    // Statement banner's CTA browse ID; independent of localized display text.
+    // Match banner CTA browse ID across locales.
     const path = [2, 11, 1, 4, 170382656, 1, 169495254, 48687626, 2];
     function matches(bytes: Uint8Array, depth: number): boolean {
         if (depth === path.length) return sameBytes(bytes, PREMIUM_BROWSE_ID);
         const fields = wireFields(bytes).filter(
             (field) => field.no === path[depth] && field.wire === 2,
         );
-        // The executor contains a list of commands; other hops are singletons.
+        // Executor has multiple commands; other hops are singletons.
         return (
             (depth === 5 || fields.length === 1) &&
             fields.some((field) => matches(field.data, depth + 1))
@@ -177,7 +177,7 @@ function transformContent(
                 flags |= visit(child, classify) & BLOCKED;
             return flags;
         }
-        // Local and descendant blocking facts describe the pre-edit tree.
+        // Classify before edits.
         let blocked =
             classify &&
             (isBlockedObject(
@@ -244,7 +244,7 @@ function transformContent(
                         ? 0
                         : visit(item, classify || filterItems);
                 if (classify && flags & BLOCKED) return BLOCKED;
-                // Aggregate before deletion: an outer candidate still contains its original ad.
+                // Propagate blocked state before deleting children.
                 blocked = !!(flags & BLOCKED) || blocked;
                 const remove =
                     direct ||
@@ -278,15 +278,12 @@ function transformContent(
 function unlockJumpAhead(button: Message<"SmartSkipButton">) {
     let changed = false;
     const controller = button.controller;
-    // smart_skip_button.eml selects a promo placeholder when field 7 is
-    // true, and the client's timely_action button when false. Keep every
-    // timing, gesture, entity binding and native seek action unchanged.
+    // Field 7: true = promo, false = timely_action. Preserve native seek behavior.
     if (controller?.promotionMode === true) {
         setField(controller, "promotionMode", false);
         changed = true;
     }
-    // The client checks both total and per-action display counters. Use
-    // YouTube's existing unlimited sentinel without resetting client state.
+    // 0x7fffffff = unlimited; apply to button and action counters.
     if (button.actions?.items?.length)
         for (const target of [button, ...button.actions.items]) {
             if (target.displayLimit === 0x7fffffff) continue;
@@ -342,8 +339,7 @@ function unlockSpeedMenu(bytes: Uint8Array) {
                     ),
                 );
             }
-            // Presets already contain the real rate action; field 3 overrides it
-            // with the Premium panel. Remove only that preset-specific override.
+            // Field 3 overrides the rate action with the Premium panel.
             return rewriteBinaryPath(expanded, [10, 1674], (preset) => {
                 const fields = wireFields(preset);
                 const keep = fields.filter(

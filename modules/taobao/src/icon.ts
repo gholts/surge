@@ -8,12 +8,10 @@ function unlockIcon(): void {
     )
         return $done({});
 
-    // Captured icon-page bundle only. Keep device support checks and the native
-    // setIcon call intact; this does not change account membership or benefits.
+    // Patch captured UI gate; keep device checks and native setIcon.
     const gate =
         /function\(\)\{return ([\w$]+)\?\(0,[\w$]+\.[\w$]+\)\(\1\.blackVip\)\?([\w$]+)\.SELECTED:Number\(\1\.taoScore\)<1e3\?\2\.NEED_TAO_SCORE:\2\.NEED_OPEN_CARD:\2\.HIDDEN\}/g;
     const reset = /\b[\w$]+\.needAutoSet(?=,)/g;
-    // Unknown bundles pass through. Never guess at a different entitlement gate.
     if (body.match(gate)?.length !== 1 || body.match(reset)?.length !== 1)
         return $done({});
     $done({

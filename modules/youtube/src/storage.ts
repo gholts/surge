@@ -5,7 +5,7 @@ function readConfig(
     key = CONFIG_KEY,
     limit = Infinity,
 ): Record<string, unknown> {
-    // I/O errors must propagate: a failed read is not an empty configuration.
+    // Propagate read errors; do not treat them as empty config.
     const stored = $persistentStore.read(key);
     if (typeof stored === "string" && stored.length > limit) return {};
     try {

@@ -95,7 +95,7 @@ function main(): void {
                 fields.items = items.filter(
                     (item: any) => !isSponsored(item, data.template),
                 );
-                // Keep server pagination offsets/counts: they include filtered ads.
+                // Server pagination includes filtered ads.
                 changed ||= fields.items.length !== items.length;
             }
             if (

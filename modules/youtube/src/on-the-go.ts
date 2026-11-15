@@ -1,4 +1,4 @@
-// Native action shapes verified against YouTube iOS 21.41.5 captures.
+// Action schema: YouTube iOS 21.41.5 captures.
 function nativeField(no: number, value: Uint8Array | string | number) {
     return encodeField(
         [
@@ -46,8 +46,7 @@ function panelIdentifier(panel: Message<"EngagementPanel">) {
 }
 
 function onTheGoAction() {
-    // Native serial action: log the click, dismiss the menu, set the trigger
-    // entity, then open the panel. Its template observes the trigger entity.
+    // Log, dismiss, set trigger, open panel. Template observes trigger.
     const state = "/youtube/app/on_the_go_menu_trigger_state";
     return nativeField(
         170382688,

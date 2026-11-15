@@ -1,6 +1,6 @@
 function setQuality(bytes: Uint8Array, quality: SelectedQuality | undefined) {
-    // A fresh manual selection plus sticky resolution prevents ABR downgrades.
-    // Without a matching catalogue, retain the higher-quality preference.
+    // Manual selection + sticky resolution prevent ABR downgrades.
+    // Without a matching catalogue, keep the higher-quality preference.
     const values = new Map(
             quality
                 ? [
@@ -39,8 +39,7 @@ function setQuality(bytes: Uint8Array, quality: SelectedQuality | undefined) {
     return changed ? concatBytes(chunks) : bytes;
 }
 function preferInitialQuality(bytes: Uint8Array) {
-    // OnesieRequest carries ClientAbrState at field 2, before initial media.
-    // Keep the encrypted request and signed configuration byte-for-byte intact.
+    // Edit ClientAbrState (field 2); preserve encrypted data and signed config.
     const fields = wireFields(bytes);
     const states = fields.filter((field) => field.no === 2 && field.wire === 2);
     if (states.length !== 1) return bytes;
@@ -73,8 +72,7 @@ function selectQuality(
             decodeURIComponent(match[1])
         ];
         if (!validQuality(quality)) return;
-        // Copy complete IDs from this request's allowed list; never invent an
-        // itag, timestamp, tag or authorization, nor modify the signed config.
+        // Copy complete allowed IDs; preserve signed config.
         const formats: Uint8Array[] = [],
             premium: Uint8Array[] = [];
         for (const field of wireFields(signed)) {

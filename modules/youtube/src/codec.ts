@@ -74,7 +74,7 @@ function decodeMessage(
             delete field.spec;
             continue;
         }
-        // Normal content stays eager; only present optional branches get a getter.
+        // Decode present optional branches lazily; keep content eager.
         if ((schema as Schema)[kind] && !contentTypes.has(kind)) {
             if (lazyNames?.has(name)) continue;
             (lazyNames ??= new Set<string>()).add(name);
@@ -147,7 +147,7 @@ function encodeField(spec: FieldSpec, value: ProtoValue) {
 function encodeMessage(type: MessageType, message: ProtoNode) {
     const state = message[wireState];
     if (state && !state.changed) return state.bytes;
-    // Repeated edits filter existing values or append new ones; survivors keep wire order.
+    // Filter or append repeated values; preserve survivor order.
     const chunks: Uint8Array[] = [],
         remaining = new Map<string, Map<ProtoValue, ProtoValue>>(),
         handled = new Set<string>();
@@ -239,7 +239,7 @@ function unknownFields(message: ProtoNode): WireField[] {
     return (state.unknown = unknown ?? EMPTY_FIELDS);
 }
 
-// Patch a verified opaque field without teaching the content walker its schema.
+// Patch opaque fields without adding them to the content schema.
 function rewriteUnknownField(
     message: ProtoNode,
     no: number,
@@ -263,12 +263,12 @@ function rewriteUnknownField(
         }
     }
     state.unknown = undefined;
-    // No declared field changed here; ancestors still use parentName.
+    // No declared field changed; propagate via parentName.
     markChanged(state, "");
     return true;
 }
 
-// Edit a declared binary path; keep all siblings and repeated occurrences.
+// Preserve siblings and repeated fields.
 function rewriteBinaryPath(
     bytes: Uint8Array,
     path: number[],

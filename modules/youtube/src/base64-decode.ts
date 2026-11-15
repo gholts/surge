@@ -2,7 +2,7 @@ function decodeBase64(value: string) {
     const normalized = value.replace(/[-_\s=]/g, (character) =>
         character === "-" ? "+" : character === "_" ? "/" : "",
     );
-    // Preserve the existing decoder's ignored final six bits; validate that character too.
+    // Validate the final character even when its six bits are ignored.
     const partial = normalized.length % 4 === 1;
     const bytes = Uint8Array.fromBase64(
         partial ? normalized + "A" : normalized,

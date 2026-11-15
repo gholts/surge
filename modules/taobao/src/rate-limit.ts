@@ -17,8 +17,7 @@ function skipRateLimit(): void {
     )
         return $done({});
 
-    // Use the captured native cancel action, never the verification-success path.
-    // CAPTCHA, login, upgrade and non-Taobao pages retain their original behavior.
+    // Native cancel only; keep verification, login and upgrade flows intact.
     const cancel =
         "if(/AliApp\\(TB\\//.test(navigator.userAgent)&&_.isInNativeSdk&&" +
         "/^(deny|wait)$/.test(this.props.action)&&!this.props.appUpgrade&&" +

@@ -1,5 +1,4 @@
-// Only the two missing layouts are bundled. Shared components come from the
-// response's definitions or its resource-availability report, never our cache.
+// Bundle two missing layouts; resolve shared components from the response.
 function onTheGoResourceId(update: Uint8Array) {
     const resource =
         binaryAt(update, [196886555]) ?? binaryAt(update, [426171394]);
@@ -58,7 +57,7 @@ function prepareOnTheGoResources(message: Message<"Next">) {
             const status = wireFields(item.data).find(
                 (f) => f.no === 2 && f.wire === 0,
             );
-            // 1 = already available to the client; 2 = attached in this response.
+            // 1 = client has it; 2 = attached to response.
             if (name && status && [1, 2].includes(numberValue(status.data)))
                 available.add(utf8.decode(name));
         }
@@ -78,7 +77,7 @@ function prepareOnTheGoResources(message: Message<"Next">) {
         )) {
             const name = utf8.decode(dep.data);
             if (bundledIds.has(name) || available.has(name)) continue;
-            // Match a public component by name. Fragment IDs have no interchangeable version.
+            // Match public component names; fragment IDs are version-specific.
             const prefix = name.slice(0, name.indexOf("|") + 1);
             const matches = prefix
                 ? [...available].filter((value) => value.startsWith(prefix))
@@ -95,7 +94,7 @@ function prepareOnTheGoResources(message: Message<"Next">) {
             )
                 return;
             const bound = binaryAt(resource, [2])!;
-            // Separate cache identity for each rebound layout; no account data is involved.
+            // Hash each rebound layout for its cache ID.
             let hash = 2166136261;
             for (const byte of bound) hash = Math.imul(hash ^ byte, 16777619);
             id = id.split("|")[0] + "|" + (hash >>> 0).toString(16);

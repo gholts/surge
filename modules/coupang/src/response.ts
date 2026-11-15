@@ -21,7 +21,7 @@ function isAd(value: any): boolean {
     if (!value || typeof value !== "object") return false;
     const entity = value.entity ?? value;
     const data = entity.data ?? entity;
-    // adStore alone describes the merchant, not necessarily this placement.
+    // adStore marks merchants, not ad placements.
     return (
         isAdModule(value) ||
         entity.isAds === true ||
@@ -51,7 +51,7 @@ function clean(value: any): any {
     const widget = value.widget;
     const items = widget?.data?.productUnitItems?.data?.items;
     if (Array.isArray(items)) {
-        // Live carousels mix organic streams with paid video cards.
+        // Live carousels contain paid and organic cards.
         widget.data.productUnitItems.data.items = items.filter((item: any) => {
             if (item?.id == null) return true;
             const event = widget.event?.["onClickProductUnit" + item.id];
@@ -96,7 +96,7 @@ function cleanJson(value: any, path: string): any {
         }
     } else if (/store\.get_gateway_notification(?:_v5)?$/.test(path)) {
         const data = value.data;
-        // Preserve order/account notices delivered through the same endpoint.
+        // Keep order/account notices on this endpoint.
         if (data?.bannerId || data?.content?.cmsBannerId) {
             value.data = {
                 type: null,
@@ -114,7 +114,7 @@ function cleanJson(value: any, path: string): any {
 }
 
 function cleanHtml(body: string): string {
-    // Parse captured JSON literals only. Never execute scripts from responses.
+    // Parse JSON only; never evaluate response scripts.
     body = body.replace(
         /(window\._GATEWAY_DATA_\s*=\s*decodeGatewayData\(')([^']*)('\))/g,
         (match, prefix: string, encoded: string, suffix: string) => {
@@ -133,7 +133,7 @@ function cleanHtml(body: string): string {
             }
         },
     );
-    // Bound greedy JSON matching to one script; JSON strings can contain `});`.
+    // Limit JSON matching to one script; strings may contain `});`.
     body = body.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (script) => {
         for (const pattern of [
             /(window\.modules\.push\()([\s\S]*)(\);?)(?=\s*<\/script>)/,

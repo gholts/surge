@@ -19,8 +19,7 @@ function useHttps(): void {
             return $done({});
 
         if (typeof $response === "undefined") {
-            // AMDC's dictionary-compressed responses cannot be parsed by Surge.
-            // Keep the signed request body intact; negotiate standard compression.
+            // Surge cannot decode AMDC dictionaries; request standard compression.
             const output = Object.fromEntries(
                 Object.entries(headers).filter(
                     ([key]) =>
@@ -65,8 +64,7 @@ function useHttps(): void {
                         )
                     )
                         continue;
-                    // Preserve server addresses and timeouts. Standard HTTPS
-                    // omits Alibaba's pinned public key and proprietary transport.
+                    // HTTPS needs no Alibaba public key; keep addresses and timeouts.
                     const { publickey, rtt, ...attribute } = attributes[0];
                     channel.attributes = [
                         {

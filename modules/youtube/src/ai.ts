@@ -78,7 +78,7 @@ function removeAiCarousel(bytes: Uint8Array) {
         const cards = fields.filter(
             (field) => field.no === 2 && field.wire === 2,
         );
-        // Parallel header/card arrays must retain matching indices (Comments vs Ask).
+        // Keep header/card indices aligned (Comments vs Ask).
         if (headers.length !== cards.length) return carousel;
         const removed = new Set<WireField>();
         cards.forEach((card, index) => {
@@ -147,7 +147,7 @@ function removeAiSummary(bytes: Uint8Array) {
     const result = rewriteAiFields(bytes, 45, (key) =>
         aiPathMatches(key, [], AI_SUMMARY, true) ? undefined : key,
     );
-    // Only remove the summary update command; keep inline playback commands.
+    // Remove summary updates; keep inline playback commands.
     return rewriteBinaryPath(
         result,
         [1, 19, 1, 1, 4, 424915055, 1],
