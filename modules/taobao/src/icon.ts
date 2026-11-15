@@ -2,7 +2,7 @@ function unlockIcon(): void {
     const body = $response.body;
     if (
         !body ||
-        !/^https:\/\/g\.alicdn\.com\/code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/p_app-icon-setting-index\.js(?:\?|$)/.test(
+        !/^https:\/\/g\.alicdn\.com\/code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/p_app-icon-setting-(?:index|mods-main-index)\.js(?:\?|$)/.test(
             $request.url,
         )
     )
