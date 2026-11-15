@@ -1,3 +1,6 @@
+node_modules/
+dist/
+
 # Tests stay local.
 test/
 tests/

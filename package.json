@@ -2,14 +2,12 @@
     "name": "surge-build",
     "private": true,
     "scripts": {
-        "format": "prettier --write package.json tsconfig.base.json \".github/workflows/*.yml\" \"modules/**/*.{cts,ts,json}\" \"!**/node_modules/**\" \"!**/dist/**\" \"!modules/**/*.sgmodule\"",
-        "format:check": "prettier --check package.json tsconfig.base.json \".github/workflows/*.yml\" \"modules/**/*.{cts,ts,json}\" \"!**/node_modules/**\" \"!**/dist/**\" \"!modules/**/*.sgmodule\"",
-        "build": "npm run build --workspaces",
-        "build:check": "npm run build:check --workspaces"
+        "build": "bun run --workspaces build",
+        "build:check": "bun run --workspaces build:check"
     },
     "devDependencies": {
+        "@types/bun": "^1.4.4",
         "@types/node": "24.19.1",
-        "prettier": "3.9.9",
         "terser": "5.51.2",
         "typescript": "7.0.2"
     },

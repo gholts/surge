@@ -112,6 +112,6 @@ type ContentNode = ProtoNode & {
     smartSkipButton?: Message<"SmartSkipButton">;
 };
 
-// Injected by build.cts from the checked generic UI resource bundle.
+// Injected from assets by build.ts.
 declare const ON_THE_GO_BUNDLE_TEMPLATE: string;
 declare const ON_THE_GO_RESOURCES_BASE64: string;

@@ -1,14 +1,11 @@
-import type * as Fs from "node:fs";
-const fs: typeof Fs = require("node:fs");
-const path: typeof import("node:path") = require("node:path");
-const vm: typeof import("node:vm") = require("node:vm");
-const os: typeof import("node:os") = require("node:os");
-const { createHash }: typeof import("node:crypto") = require("node:crypto");
-const { minify_sync }: typeof import("terser") = require("terser");
-const {
-    spawnSync,
-}: typeof import("node:child_process") = require("node:child_process");
-const dir = __dirname;
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import vm from "node:vm";
+import { spawnSync } from "node:child_process";
+import { minify_sync } from "terser";
+import { createHash } from "node:crypto";
+const dir = import.meta.dir;
 const root = path.resolve(dir, "../..");
 const compiled = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-ts-"));
 const sources = new Map<string, string>();
@@ -55,7 +52,7 @@ const library = [
     "codec",
 ];
 type Role = "request" | "response" | "key" | "ump";
-const roles: Record<
+export const roles: Record<
     Role,
     { parts: string[]; roots?: MessageType[]; entry: string }
 > = {
@@ -171,7 +168,7 @@ function schemaCode(roots: string[]) {
         ");"
     );
 }
-function build(role: Role) {
+export function build(role: Role) {
     const { parts, roots, entry } = roles[role];
     const chunks = roots
         ? [schemaCode(roots), ...parts.map(read)]
@@ -195,7 +192,7 @@ function build(role: Role) {
         );
     }
     return (
-        "// Generated from modules/youtube/src/ and assets/; run npm run build --workspace youtube.\n" +
+        "// Build: bun run --filter youtube build\n" +
         "(() => {\n" +
         chunks.join("\n\n").replace(/[^\n]+/g, "    $&") +
         "\n\n    " +
@@ -203,8 +200,7 @@ function build(role: Role) {
         "();\n})();\n"
     );
 }
-module.exports = { build, roles };
-if (require.main === module) {
+if (import.meta.main) {
     const check = process.argv.includes("--check");
     let stale = false;
     function output(relative: string, contents: string) {

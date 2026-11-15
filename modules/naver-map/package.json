@@ -2,7 +2,7 @@
     "name": "naver-map",
     "private": true,
     "scripts": {
-        "build": "node build.cts",
-        "build:check": "node build.cts --check"
+        "build": "bun run build.ts",
+        "build:check": "bun run build.ts --check"
     }
 }

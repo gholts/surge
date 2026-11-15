@@ -1,13 +1,10 @@
-import type * as Fs from "node:fs";
-const fs: typeof Fs = require("node:fs");
-const path: typeof import("node:path") = require("node:path");
-const os: typeof import("node:os") = require("node:os");
-const vm: typeof import("node:vm") = require("node:vm");
-const {
-    spawnSync,
-}: typeof import("node:child_process") = require("node:child_process");
-const { minify_sync }: typeof import("terser") = require("terser");
-const root = path.resolve(__dirname, "../..");
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import vm from "node:vm";
+import { spawnSync } from "node:child_process";
+import { minify_sync } from "terser";
+const root = path.resolve(import.meta.dir, "../..");
 const compiled = fs.mkdtempSync(path.join(os.tmpdir(), "eleme-ts-"));
 const check = process.argv.includes("--check");
 function output(relative: string, contents: string): void {
@@ -31,7 +28,7 @@ try {
         [
             path.join(root, "node_modules/typescript/bin/tsc"),
             "--project",
-            path.join(__dirname, "tsconfig.json"),
+            path.join(import.meta.dir, "tsconfig.json"),
             "--outDir",
             compiled,
         ],
@@ -54,7 +51,10 @@ try {
     }
     output(
         "modules/eleme-adblock.sgmodule",
-        fs.readFileSync(path.join(__dirname, "eleme-adblock.sgmodule"), "utf8"),
+        fs.readFileSync(
+            path.join(import.meta.dir, "eleme-adblock.sgmodule"),
+            "utf8",
+        ),
     );
 } finally {
     fs.rmSync(compiled, { recursive: true, force: true });

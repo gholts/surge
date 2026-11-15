@@ -1,14 +1,16 @@
 {
     "compilerOptions": {
         "target": "ESNext",
-        "module": "NodeNext",
+        "module": "Preserve",
+        "moduleResolution": "Bundler",
         "strict": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noEmitOnError": true,
         "erasableSyntaxOnly": true,
         "moduleDetection": "legacy",
-        "types": ["node"],
+        "types": ["bun"],
+        "skipLibCheck": true,
         "lib": ["ESNext", "DOM", "DOM.Iterable"]
     }
 }
