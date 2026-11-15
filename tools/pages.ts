@@ -1,5 +1,6 @@
 import { $, Glob } from "bun";
 import { cp, readdir, rm } from "node:fs/promises";
+import path from "node:path";
 
 const siteUrl = process.env.SITE_URL || process.env.CF_PAGES_URL;
 if (!siteUrl) throw new Error("Set SITE_URL to your public HTTPS origin.");
@@ -9,7 +10,7 @@ if (site.protocol !== "https:" || site.href !== site.origin + "/")
         "SITE_URL must be an HTTPS origin without a path, query, or fragment.",
     );
 
-process.chdir(import.meta.dir);
+process.chdir(path.resolve(import.meta.dir, ".."));
 const output = "dist/pages";
 await rm("dist", { recursive: true, force: true });
 await $`${process.execPath} run build`;
@@ -24,7 +25,7 @@ for await (const name of new Glob("*.sgmodule").scan("dist/modules")) {
     await Bun.write(`${output}/modules/${name}`, module);
 }
 
-const template = await Bun.file("pages.html").text();
+const template = await Bun.file("tools/pages.html").text();
 const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const updated = timestamp.replace("T", " ").replace("Z", " UTC");
 

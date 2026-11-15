@@ -1,43 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import vm from "node:vm";
-import { spawnSync } from "node:child_process";
-import { minify_sync } from "terser";
 import { createHash } from "node:crypto";
+import { compile, emitModule, emitScript } from "../../tools/lib";
+type Schema = Record<
+    string,
+    readonly (readonly [number, string, string, true?])[]
+>;
 const dir = import.meta.dir;
-const root = path.resolve(dir, "../..");
-const compiled = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-ts-"));
-const sources = new Map<string, string>();
-try {
-    const result = spawnSync(
-        process.execPath,
-        [
-            path.join(root, "node_modules/typescript/bin/tsc"),
-            "--project",
-            path.join(dir, "tsconfig.json"),
-            "--outDir",
-            compiled,
-        ],
-        { stdio: "inherit" },
-    );
-    if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error("TypeScript compilation failed");
-    for (const file of fs.readdirSync(path.join(compiled, "src")))
-        sources.set(
-            path.basename(file, ".js"),
-            fs
-                .readFileSync(path.join(compiled, "src", file), "utf8")
-                .replace(/^"use strict";\n/, "")
-                .trim(),
-        );
-} finally {
-    fs.rmSync(compiled, { recursive: true, force: true });
-}
+const sources = compile(dir);
 function read(name: string) {
     const contents = sources.get(name);
     if (contents === undefined) throw new Error("Missing source: " + name);
-    return contents;
+    return contents.replace(/^"use strict";\n/, "").trim();
 }
 const schema = vm.runInNewContext(read("schema") + "\nschema;") as Schema;
 const common = ["storage", "bytes", "wire", "integer"];
@@ -52,9 +27,9 @@ const library = [
     "codec",
 ];
 type Role = "request" | "response" | "key" | "ump";
-export const roles: Record<
+const roles: Record<
     Role,
-    { parts: string[]; roots?: MessageType[]; entry: string }
+    { parts: string[]; roots?: string[]; entry: string }
 > = {
     request: {
         entry: "requestMain",
@@ -134,7 +109,10 @@ function schemaCode(roots: string[]) {
         included.add(type);
         for (const [, , kind] of schema[type]) include(kind);
     }
-    for (const type of roots) include(type);
+    for (const type of roots) {
+        if (!schema[type]) throw new Error("Unknown schema root: " + type);
+        include(type);
+    }
     const subset = Object.fromEntries(
         Object.entries(schema).filter(([type]) => included.has(type)),
     );
@@ -192,7 +170,7 @@ export function build(role: Role) {
         );
     }
     return (
-        "// Build: bun run --filter youtube build\n" +
+        "// Build: bun run build youtube\n" +
         "(() => {\n" +
         chunks.join("\n\n").replace(/[^\n]+/g, "    $&") +
         "\n\n    " +
@@ -201,37 +179,7 @@ export function build(role: Role) {
     );
 }
 if (import.meta.main) {
-    const check = process.argv.includes("--check");
-    let stale = false;
-    function output(relative: string, contents: string) {
-        const file = path.join(root, "dist", relative);
-        if (check) {
-            if (
-                !fs.existsSync(file) ||
-                fs.readFileSync(file, "utf8") !== contents
-            ) {
-                console.error("STALE: " + relative);
-                stale = true;
-            }
-        } else {
-            fs.mkdirSync(path.dirname(file), { recursive: true });
-            fs.writeFileSync(file, contents);
-        }
-    }
-    for (const role of Object.keys(roles) as Role[]) {
-        const { code } = minify_sync(build(role), {
-            ecma: 2022,
-            compress: { passes: 2 },
-            format: { comments: /copyright|@license|@preserve|^!/i },
-        });
-        if (!code) throw new Error("Empty minified script: " + role);
-        const contents = code + "\n";
-        new vm.Script(contents, { filename: role + ".js" });
-        output(path.join("scripts", "youtube", role + ".js"), contents);
-    }
-    output(
-        path.join("modules", "youtube-enhance.sgmodule"),
-        fs.readFileSync(path.join(dir, "youtube-enhance.sgmodule"), "utf8"),
-    );
-    if (stale) process.exitCode = 1;
+    for (const role of Object.keys(roles) as Role[])
+        emitScript("youtube", role, build(role));
+    emitModule(dir);
 }

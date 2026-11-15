@@ -2,40 +2,68 @@ function unlockIcon(): void {
     const body = $response.body;
     if (
         typeof body !== "string" ||
-        !body ||
-        !/^https:\/\/(?:g\.alicdn\.com\/code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/(?:main|p_app-icon-setting-(?:index|mods-main-index))\.js|pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting)(?:\?|$)/.test(
+        !/\/(?:gw|h5)\/mtop\.taobao\.vipshop\.blackvip\.(?:track\.info|benefit\.manage\.page\.render)\//.test(
             $request.url,
         )
     )
         return $done({});
-
-    // Refresh both the page entry and lazy-loaded component, even when the
-    // browser has cached an earlier bundle that still contains the signup gate.
+    const referrer = Object.entries($request.headers ?? {}).find(
+        ([key]) => key.toLowerCase() === "referer",
+    )?.[1];
     if (
-        /\/app-icon-setting(?:\?|$)|\/js\/main\.js(?:\?|$)/.test($request.url)
-    ) {
-        const output = body
-            .replace(
-                /((?:main|p_app-icon-setting-(?:index|mods-main-index))\.js)(["'])/g,
-                "$1?tb_clean=3$2",
-            )
-            .replace(
-                /(__webpack_require__\.u=function\([\w$]+\)\{return"js\/"\+\{[^{}]*p_app-icon-setting[^{}]*\}\[[\w$]+\]\+)"\.js"/g,
-                '$1".js?tb_clean=3"',
-            );
-        return $done(output === body ? {} : { body: output });
-    }
-
-    // Patch captured UI gate; keep device checks and native setIcon.
-    const gate =
-        /function\(\)\{return ([\w$]+)\?\(0,[\w$]+\.[\w$]+\)\(\1\.blackVip\)\?([\w$]+)\.SELECTED:Number\(\1\.taoScore\)<1e3\?\2\.NEED_TAO_SCORE:\2\.NEED_OPEN_CARD:\2\.HIDDEN\}/g;
-    const reset = /\b[\w$]+\.needAutoSet(?=,)/g;
-    if (body.match(gate)?.length !== 1 || body.match(reset)?.length !== 1)
+        !referrer ||
+        !/^https:\/\/pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting(?:\?|$)/.test(
+            referrer,
+        )
+    )
         return $done({});
-    $done({
-        body: body
-            .replace(gate, "function(){return $2.SELECTED}")
-            .replace(reset, "!1"),
-    });
+    try {
+        const response = JSON.parse(body);
+        if (
+            !Array.isArray(response.ret) ||
+            !response.ret.some(
+                (status: any) =>
+                    typeof status === "string" && status.startsWith("SUCCESS"),
+            )
+        )
+            return $done({});
+        const data = response.data;
+        if (!data || typeof data !== "object" || Array.isArray(data))
+            return $done({});
+        let changed = false;
+        // The cached icon page reads these response flags. Other member/account
+        // pages are excluded by the exact Referer check above.
+        if (
+            response.api === "mtop.taobao.vipshop.blackvip.track.info" &&
+            (data.blackVip === false || data.blackVip === "false")
+        ) {
+            data.blackVip = typeof data.blackVip === "string" ? "true" : true;
+            changed = true;
+        }
+        if (
+            response.api ===
+                "mtop.taobao.vipshop.blackvip.benefit.manage.page.render" &&
+            (data.support === true || data.support === "true") &&
+            Array.isArray(data.supportIcons)
+        ) {
+            for (const icon of data.supportIcons) {
+                if (
+                    icon?.iconKey === "AppIconVIP" &&
+                    icon.active === false &&
+                    icon.canChoose === false
+                ) {
+                    icon.canChoose = true;
+                    changed = true;
+                }
+            }
+            if (data.needAutoSet) {
+                data.needAutoSet = false;
+                changed = true;
+            }
+        }
+        $done(changed ? { body: JSON.stringify(response) } : {});
+    } catch {
+        $done({});
+    }
 }
 unlockIcon();

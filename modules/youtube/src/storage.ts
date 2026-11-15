@@ -17,6 +17,6 @@ function readConfig(
         return {};
     }
 }
-function writeConfig(config: Record<string, unknown>, key = CONFIG_KEY) {
-    return $persistentStore.write(JSON.stringify(config), key);
+function writeConfig(config: Record<string, unknown>) {
+    return $persistentStore.write(JSON.stringify(config), CONFIG_KEY);
 }

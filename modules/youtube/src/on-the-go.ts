@@ -20,15 +20,6 @@ function nativePath(path: number[], value: Uint8Array | string | number) {
     return value as Uint8Array;
 }
 
-function binaryAt(bytes: Uint8Array, path: number[]) {
-    let current: Uint8Array | undefined = bytes;
-    for (const no of path) {
-        current = bytesField(current, no, true);
-        if (!current) return;
-    }
-    return current;
-}
-
 const ON_THE_GO_ID = "on-the-go";
 const ON_THE_GO_MENU_ID =
     "/youtube/app/player_overflow_menu/menu_item_on_the_go";
@@ -396,8 +387,7 @@ function enableOnTheGo(message: Message<"Next">) {
         const id = utf8.decode(state);
         if (id === ON_THE_GO_MENU_ID) {
             // Native entries can advertise the feature but open a Premium offer.
-            if (!containsMarker(model, textEncoder.encode("PApremium_upsell")))
-                return false;
+            if (!containsMarker(model, PREMIUM_UPSELL)) return false;
             replacement = index;
             source = item.data;
         }

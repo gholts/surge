@@ -268,20 +268,31 @@ function rewriteUnknownField(
     return true;
 }
 
+// Rewrite every length-delimited field `no`; undefined drops it.
 // Preserve siblings and repeated fields.
+function rewriteFields(
+    bytes: Uint8Array,
+    no: number,
+    transform: (bytes: Uint8Array) => Uint8Array | undefined,
+) {
+    let changed = false;
+    const chunks = wireFields(bytes).flatMap((field) => {
+        if (field.no !== no || field.wire !== 2) return [field.raw];
+        const data = transform(field.data);
+        if (data && sameBytes(data, field.data)) return [field.raw];
+        changed = true;
+        return data ? [encodeField([no, "", "bytes"], data)] : [];
+    });
+    return changed ? concatBytes(chunks) : bytes;
+}
 function rewriteBinaryPath(
     bytes: Uint8Array,
     path: number[],
     transform: (bytes: Uint8Array) => Uint8Array,
 ): Uint8Array {
-    if (!path.length) return transform(bytes);
-    let changed = false;
-    const chunks = wireFields(bytes).map((field) => {
-        if (field.no !== path[0] || field.wire !== 2) return field.raw;
-        const data = rewriteBinaryPath(field.data, path.slice(1), transform);
-        if (sameBytes(data, field.data)) return field.raw;
-        changed = true;
-        return encodeField([field.no, "", "bytes"], data);
-    });
-    return changed ? concatBytes(chunks) : bytes;
+    return path.length
+        ? rewriteFields(bytes, path[0], (data) =>
+              rewriteBinaryPath(data, path.slice(1), transform),
+          )
+        : transform(bytes);
 }

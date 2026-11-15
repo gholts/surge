@@ -9,7 +9,15 @@ const STORE_CARD = textEncoder.encode("shopping_item_card_list.eml");
 const STORE_TAB = textEncoder.encode("store");
 const LIVE_BADGE = textEncoder.encode("youtube_outline_experimental/live_24pt");
 const IMMERSIVE_LIVE = textEncoder.encode("immersive_live");
+const PREMIUM_UPSELL = textEncoder.encode("PApremium_upsell");
 const PREMIUM_BROWSE_ID = textEncoder.encode("SPunlimited");
+function isAdLayout(eml: string | undefined, blockStore: boolean) {
+    const layout = eml?.split("|")[0];
+    return (
+        !!layout &&
+        (AD_LAYOUT.test(layout) || (blockStore && SHOPPING_LAYOUT.test(layout)))
+    );
+}
 function containsMarker(bytes: Uint8Array, marker: Uint8Array = AD_TRACKING) {
     if (!marker.length) return true;
     const end = bytes.length - marker.length;
@@ -53,9 +61,7 @@ function hasVerticalLiveTarget(lockup: Message<"VideoLockup">) {
     try {
         for (const no of [4, 169495254, 462702848, 1, 139608561, 50, 7, 3]) {
             if (!bytes) return false;
-            bytes = wireFields(bytes).find(
-                (field) => field.no === no && field.wire === 2,
-            )?.data;
+            bytes = bytesField(bytes, no);
         }
         return !!bytes && sameBytes(bytes, IMMERSIVE_LIVE);
     } catch {
@@ -101,11 +107,8 @@ function isBlockedObject(
     blockVerticalLive: boolean,
     blockStore: boolean,
 ) {
-    const layout = object.layoutRender?.eml?.split("|")[0];
     if (
-        (layout &&
-            (AD_LAYOUT.test(layout) ||
-                (blockStore && SHOPPING_LAYOUT.test(layout)))) ||
+        isAdLayout(object.layoutRender?.eml, blockStore) ||
         (blockStore && object.shoppingShelf) ||
         object.sponsoredVideo ||
         object.sponsoredDisplay ||
@@ -187,13 +190,10 @@ function transformContent(
                 blockStore,
             ) ||
                 (blockAi && isAiOnlyCarousel(object)));
-        const layout = (
-            object as ContentNode
-        ).renderInfo?.layoutRender?.eml?.split("|")[0];
-        let empty =
-            !!layout &&
-            (AD_LAYOUT.test(layout) ||
-                (blockStore && SHOPPING_LAYOUT.test(layout)));
+        let empty = isAdLayout(
+            (object as ContentNode).renderInfo?.layoutRender?.eml,
+            blockStore,
+        );
         if (classify && (blocked || empty)) return BLOCKED;
         if (blockAi) changed = removeAi(object) || changed;
         const state = object[wireState];
@@ -306,7 +306,6 @@ function transformMenus(message: ProtoNode) {
     }
 }
 function unlockSpeedMenu(bytes: Uint8Array) {
-    const upsell = textEncoder.encode("PApremium_upsell");
     // Overflow item → inline panel → playback-rate selector model (1602).
     return rewriteBinaryPath(
         bytes,
@@ -346,7 +345,7 @@ function unlockSpeedMenu(bytes: Uint8Array) {
                     (field) =>
                         field.no !== 3 ||
                         field.wire !== 2 ||
-                        !containsMarker(field.data, upsell),
+                        !containsMarker(field.data, PREMIUM_UPSELL),
                 );
                 return keep.length === fields.length
                     ? preset

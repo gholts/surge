@@ -68,7 +68,7 @@ function selectQuality(
         );
         const signed = config && bytesField(config.data, 1);
         if (!signed?.length) return;
-        const quality = readConfig(QUALITY_KEY, QUALITY_LIMIT)?.[
+        const quality = readConfig(QUALITY_KEY, QUALITY_LIMIT)[
             decodeURIComponent(match[1])
         ];
         if (!validQuality(quality)) return;

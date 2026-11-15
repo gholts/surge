@@ -1,8 +1,8 @@
 #!name=Taobao Clean
 #!desc=Taobao cleanup. Requires MITM.
 #!category=gholts
-#!arguments=unlock_icon:true,block_tracking:true,skip_rate_limit:true,https_api:true
-#!arguments-desc=unlock_icon: 88VIP icon\nblock_tracking: Analytics\nskip_rate_limit: Dismiss rate-limit screen\nhttps_api: Standard HTTPS for Taobao APIs
+#!arguments=unlock_icon:true,block_tracking:true,skip_rate_limit:true
+#!arguments-desc=unlock_icon: 88VIP icon\nblock_tracking: Analytics\nskip_rate_limit: Dismiss rate-limit screen
 #!requirement=SYSTEM = 'iOS'
 
 [Rule]
@@ -10,23 +10,25 @@ DOMAIN,ifs.tanx.com,REJECT
 DOMAIN,h-adashx.ut.taobao.com,REJECT #!REQUIREMENT "'{{{block_tracking}}}' == 'true'"
 
 [URL Rewrite]
+^https:\/\/g\.alicdn\.com\/mtb\/icart\/1\.255\.0\/weex\/cart\.v2[01]\.wlm(?:\?.*)?$ https://g.alicdn.com/mtb/icart/1.255.0/weex/cart.js?tb_clean=7 302
 ^https?:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.wireless\.home\.splash\.awesome\.get\/ - reject
 
 [Header Rewrite]
-http-request ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting|g\.alicdn\.com\/(?:mtb\/icart\/[\d.]+\/weex\/cart\.v2[01]\.wlm|code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/(?:main|p_app-icon-setting-(?:index|mods-main-index))\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-del If-Modified-Since
-http-request ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting|g\.alicdn\.com\/(?:mtb\/icart\/[\d.]+\/weex\/cart\.v2[01]\.wlm|code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/(?:main|p_app-icon-setting-(?:index|mods-main-index))\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-del If-None-Match
-http-response ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting|g\.alicdn\.com\/(?:mtb\/icart\/[\d.]+\/weex\/cart\.v2[01]\.wlm|code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/(?:main|p_app-icon-setting-(?:index|mods-main-index))\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-del Cache-Control
-http-response ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting|g\.alicdn\.com\/(?:mtb\/icart\/[\d.]+\/weex\/cart\.v2[01]\.wlm|code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/(?:main|p_app-icon-setting-(?:index|mods-main-index))\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-add Cache-Control no-store
+http-request ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|g\.alicdn\.com\/(?:mtb\/icart\/1\.255\.0\/weex\/cart\.(?:v2[01]\.wlm|js)|code\/npm\/@ali\/pegasus-project-dragon-stable\/[\d.]+\/js\/p_poplayer-index\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-del If-Modified-Since
+http-request ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|g\.alicdn\.com\/(?:mtb\/icart\/1\.255\.0\/weex\/cart\.(?:v2[01]\.wlm|js)|code\/npm\/@ali\/pegasus-project-dragon-stable\/[\d.]+\/js\/p_poplayer-index\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-del If-None-Match
+http-response ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|g\.alicdn\.com\/(?:mtb\/icart\/1\.255\.0\/weex\/cart\.(?:v2[01]\.wlm|js)|code\/npm\/@ali\/pegasus-project-dragon-stable\/[\d.]+\/js\/p_poplayer-index\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-del Cache-Control
+http-response ^https:\/\/(?:poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json|g\.alicdn\.com\/(?:mtb\/icart\/1\.255\.0\/weex\/cart\.(?:v2[01]\.wlm|js)|code\/npm\/@ali\/pegasus-project-dragon-stable\/[\d.]+\/js\/p_poplayer-index\.js|bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js))(?:\?|$) header-add Cache-Control no-store
 
 [Script]
+taobao.clean.cart-source = type=http-response,pattern=^https:\/\/g\.alicdn\.com\/mtb\/icart\/1\.255\.0\/weex\/cart\.js(?:\?|$),requires-body=1,max-size=2097152,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/cart.js?v=7
+taobao.clean.icon = type=http-response,pattern=^https:\/\/(?:(?:acs|guide-acs|trade-acs|h5api)\.m\.taobao\.com|acs-m\.unifycarbon\.com)\/(?:gw|h5)\/mtop\.taobao\.vipshop\.blackvip\.(?:track\.info|benefit\.manage\.page\.render)\/,requires-body=1,max-size=65536,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/icon.js?v=6 #!REQUIREMENT "'{{{unlock_icon}}}' == 'true'"
+taobao.clean.vip-popup = type=http-response,pattern=^https:\/\/g\.alicdn\.com\/code\/npm\/@ali\/pegasus-project-dragon-stable\/[\d.]+\/js\/p_poplayer-index\.js(?:\?|$),requires-body=1,max-size=4194304,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/popup.js
 taobao.clean.native-encoding = type=http-request,pattern=^https:\/\/(?:(?:acs|guide-acs|trade-acs|h5api)\.m\.taobao\.com|acs-m\.unifycarbon\.com)\/(?:gw|h5)\/mtop\.(?:taobao\.(?:wireless\.home\.|mclaren\.|ferrari\.homepage\.|detail\.|poplayer\.)[^/]+|trade\.(?:query\.?[bB]ag|update\.bag|update\.structure))\/,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/transport.js?v=3
-taobao.clean.native = type=http-response,pattern=^https:\/\/(?:(?:acs|guide-acs|trade-acs|h5api)\.m\.taobao\.com|acs-m\.unifycarbon\.com)\/(?:gw|h5)\/mtop\.(?:taobao\.(?:wireless\.home\.|mclaren\.|ferrari\.homepage\.|detail\.|poplayer\.)[^/]+|trade\.(?:query\.?[bB]ag|update\.bag|update\.structure))\/,requires-body=1,max-size=4194304,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/native.js
-taobao.clean.cart = type=http-response,pattern=^https:\/\/g\.alicdn\.com\/mtb\/icart\/[\d.]+\/weex\/cart\.v2[01]\.wlm(?:\?|$),requires-body=1,binary-body-mode=1,max-size=2097152,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/cart.js
-taobao.clean.transport-request = type=http-request,pattern=^http:\/\/(?:amdc\.m\.taobao\.com|(?:\d+\.){3}\d+)\/amdc\/mobileDispatch(?:\?|$),engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/transport.js?v=3 #!REQUIREMENT "'{{{https_api}}}' == 'true'"
-taobao.clean.transport-response = type=http-response,pattern=^http:\/\/(?:amdc\.m\.taobao\.com|(?:\d+\.){3}\d+)\/amdc\/mobileDispatch(?:\?|$),requires-body=1,max-size=262144,engine=webview,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/transport.js?v=3 #!REQUIREMENT "'{{{https_api}}}' == 'true'"
+taobao.clean.native = type=http-response,pattern=^https:\/\/(?:(?:acs|guide-acs|trade-acs|h5api)\.m\.taobao\.com|acs-m\.unifycarbon\.com)\/(?:gw|h5)\/mtop\.(?:taobao\.(?:wireless\.home\.|mclaren\.|ferrari\.homepage\.|detail\.|poplayer\.)[^/]+|trade\.(?:query\.?[bB]ag|update\.bag|update\.structure))\/,requires-body=1,max-size=4194304,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/native.js?v=4
+taobao.clean.transport-request = type=http-request,pattern=^http:\/\/(?:amdc\.m\.taobao\.com|(?:\d+\.){3}\d+)\/amdc\/mobileDispatch(?:\?|$),engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/transport.js?v=3
+taobao.clean.transport-response = type=http-response,pattern=^http:\/\/(?:amdc\.m\.taobao\.com|(?:\d+\.){3}\d+)\/amdc\/mobileDispatch(?:\?|$),requires-body=1,max-size=262144,engine=webview,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/transport.js?v=3
 taobao.clean.popups = type=http-response,pattern=^https:\/\/poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json(?:\?|$),requires-body=1,max-size=1048576,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/response.js
-taobao.clean.icon = type=http-response,pattern=^https:\/\/(?:g\.alicdn\.com\/code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/(?:main|p_app-icon-setting-(?:index|mods-main-index))\.js|pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting)(?:\?|$),requires-body=1,max-size=1048576,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/icon.js?v=3 #!REQUIREMENT "'{{{unlock_icon}}}' == 'true'"
 taobao.clean.rate-limit = type=http-response,pattern=^https:\/\/g\.alicdn\.com\/bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js(?:\?|$),requires-body=1,max-size=262144,engine=jsc,script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/taobao/rate-limit.js #!REQUIREMENT "'{{{skip_rate_limit}}}' == 'true'"
 
 [MITM]
-hostname = %APPEND% poplayer.template.alibaba.com, acs.m.taobao.com, acs-m.unifycarbon.com, guide-acs.m.taobao.com, trade-acs.m.taobao.com, h5api.m.taobao.com, pages-fast.m.taobao.com, g.alicdn.com
+hostname = %APPEND% poplayer.template.alibaba.com, acs.m.taobao.com, acs-m.unifycarbon.com, guide-acs.m.taobao.com, trade-acs.m.taobao.com, h5api.m.taobao.com, g.alicdn.com

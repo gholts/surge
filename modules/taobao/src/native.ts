@@ -30,9 +30,13 @@ function displayText(value: any, depth = 0): string {
         .join(" ");
 }
 
+function fieldsOf(value: any) {
+    return record(value.fields) ? value.fields : value;
+}
+
 function transactional(value: any, key = ""): boolean {
     if (!record(value)) return false;
-    const fields = record(value.fields) ? value.fields : value;
+    const fields = fieldsOf(value);
     return (
         Boolean(fields.itemId || fields.skuId || fields.orderId) ||
         /(?:^|[\s$])(?:(?:sc|icart)_)?(?:item|sku|order|submit|pay|address)(?:[_$\s]|$)/i.test(
@@ -45,7 +49,7 @@ function transactional(value: any, key = ""): boolean {
 
 function isPromotion(value: any, key = "", automatic = false): boolean {
     if (!record(value)) return false;
-    const fields = record(value.fields) ? value.fields : value;
+    const fields = fieldsOf(value);
     const identity = [
         key,
         value.tag,
@@ -80,7 +84,7 @@ function isVideoTab(value: any): boolean {
     if (typeof value === "string")
         return /^(?:视频|逛逛|guangguang|video|tab2)$/i.test(value);
     if (!record(value)) return false;
-    const fields = record(value.fields) ? value.fields : value;
+    const fields = fieldsOf(value);
     const labels = [
         fields.title,
         fields.name,

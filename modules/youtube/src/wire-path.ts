@@ -8,3 +8,12 @@ function bytesField(bytes: Uint8Array, number: number, unique = false) {
     }
     return first;
 }
+// Follow unique length-delimited fields; undefined if any hop is absent or repeated.
+function binaryAt(bytes: Uint8Array, path: number[]) {
+    let current: Uint8Array | undefined = bytes;
+    for (const no of path) {
+        current = bytesField(current, no, true);
+        if (!current) return;
+    }
+    return current;
+}

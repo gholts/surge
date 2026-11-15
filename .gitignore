@@ -11,3 +11,5 @@ test.*
 coverage/
 test-results/
 playwright-report/
+
+AGENTS.md

@@ -47,9 +47,10 @@ function filterGuide(message: Message<"Guide">, parameters: Options) {
                     (item.iconRender?.browseId ?? item.labelRender?.browseId)!,
                 ),
         );
-        changed = keep.length !== items.length || changed;
-        if (keep.length !== items.length)
+        if (keep.length !== items.length) {
             setField(object, "rendererItems", keep);
+            changed = true;
+        }
     });
     return changed;
 }

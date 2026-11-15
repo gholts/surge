@@ -2,9 +2,9 @@
     "name": "surge-build",
     "private": true,
     "scripts": {
-        "build": "bun run --workspaces build",
-        "build:check": "bun run --workspaces build:check",
-        "build:pages": "bun --check build-pages.ts"
+        "build": "bun tools/build.ts",
+        "build:check": "bun tools/build.ts --check",
+        "build:pages": "bun --check tools/pages.ts"
     },
     "devDependencies": {
         "@types/bun": "^1.4.4",
@@ -22,8 +22,5 @@
                 }
             }
         ]
-    },
-    "workspaces": [
-        "modules/*"
-    ]
+    }
 }

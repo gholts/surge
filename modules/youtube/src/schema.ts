@@ -210,15 +210,6 @@ const schema = {
         [2, "player", "Player"],
         [3, "next", "Next"],
     ],
-    Config: [[1, "responseContext", "ConfigResponseContext"]],
-    ConfigResponseContext: [[16, "globalConfigGroup", "GlobalConfigGroup"]],
-    GlobalConfigGroup: [[7, "hotConfigGroup", "HotConfigGroup"]],
-    HotConfigGroup: [[138536474, "mediaHotConfig", "MediaHotConfig"]],
-    MediaHotConfig: [[146311580, "onesieHotConfig", "OnesieHotConfig"]],
-    OnesieHotConfig: [
-        [1, "clientKey", "bytes"],
-        [2, "encryptKey", "bytes"],
-    ],
     EncryptedResponsePart: [
         [1, "encryptedContent", "bytes"],
         [2, "hmac", "bytes"],

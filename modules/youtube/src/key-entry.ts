@@ -6,11 +6,11 @@ function keyMain() {
             !$response.body?.length
         )
             return $done();
-        let group: Uint8Array | undefined = $response.body;
-        for (const no of [1, 16, 7, 138536474, 146311580]) {
-            group = bytesField(group, no, true);
-            if (!group) return $done();
-        }
+        const group = binaryAt(
+            $response.body,
+            [1, 16, 7, 138536474, 146311580],
+        );
+        if (!group) return $done();
         const clientKey = bytesField(group, 1, true),
             encryptKey = bytesField(group, 2, true);
         if (
@@ -21,19 +21,16 @@ function keyMain() {
         ) {
             const platform = platformKey($request),
                 config = readConfig();
+            const current = config[platform] as StoredKeys | undefined;
             const value: StoredKeys = {
                 clientKey: clientKey.toBase64(),
                 encryptKey: encryptKey.toBase64(),
             };
             if (
-                (config[platform] as StoredKeys | undefined)?.clientKey !==
-                    value.clientKey ||
-                (config[platform] as StoredKeys | undefined)?.encryptKey !==
-                    value.encryptKey
+                current?.clientKey !== value.clientKey ||
+                current?.encryptKey !== value.encryptKey
             ) {
-                const previous = keyCandidates(
-                    config[platform] as StoredKeys | undefined,
-                )
+                const previous = keyCandidates(current)
                     .filter(
                         (pair) =>
                             pair.clientKey !== value.clientKey ||

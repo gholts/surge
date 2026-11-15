@@ -1,8 +1,0 @@
-{
-    "name": "youtube",
-    "private": true,
-    "scripts": {
-        "build": "bun run build.ts",
-        "build:check": "bun run build.ts --check"
-    }
-}

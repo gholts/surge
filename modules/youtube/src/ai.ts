@@ -19,77 +19,66 @@ function aiPathMatches(
     );
 }
 
-function rewriteAiFields(
+const AI_CARD = [8, 2, 169495254, 138681778, 1];
+
+function dropAiFields(
     bytes: Uint8Array,
     no: number,
-    transform: (bytes: Uint8Array) => Uint8Array | undefined,
+    path: number[],
+    target = AI_PANEL,
+    prefix = false,
 ) {
-    let changed = false;
-    const chunks = wireFields(bytes).flatMap((field) => {
-        if (field.no !== no || field.wire !== 2) return [field.raw];
-        const data = transform(field.data);
-        if (data && sameBytes(data, field.data)) return [field.raw];
-        changed = true;
-        return data ? [encodeField([no, "", "bytes"], data)] : [];
-    });
-    return changed ? concatBytes(chunks) : bytes;
+    return rewriteFields(bytes, no, (data) =>
+        aiPathMatches(data, path, target, prefix) ? undefined : data,
+    );
 }
 
 function removeAiActionBar(bytes: Uint8Array) {
-    return rewriteAiFields(bytes, 1, (button) =>
+    return rewriteFields(bytes, 1, (button) =>
         aiPathMatches(button, [10, 461054335, 4, 169495254, 138681778, 1])
             ? undefined
             : rewriteBinaryPath(button, [10, 37098], (menu) =>
-                  rewriteAiFields(menu, 3, (item) =>
-                      aiPathMatches(
-                          item,
-                          [489973921, 997, 3, 3, 169495254, 138681778, 1],
-                      )
-                          ? undefined
-                          : item,
+                  dropAiFields(
+                      menu,
+                      3,
+                      [489973921, 997, 3, 3, 169495254, 138681778, 1],
                   ),
               ),
     );
 }
 
 function removeAiQuickActions(bytes: Uint8Array) {
-    return rewriteAiFields(bytes, 10, (button) => {
+    return rewriteFields(bytes, 10, (button) => {
         if (aiPathMatches(button, [15, 461054335, 4, 169495254, 138681778, 1]))
             return;
         const primary = rewriteBinaryPath(button, [15, 37098], (menu) =>
-            rewriteAiFields(menu, 3, (item) =>
-                aiPathMatches(item, [461054335, 4, 169495254, 138681778, 1])
-                    ? undefined
-                    : item,
-            ),
+            dropAiFields(menu, 3, [461054335, 4, 169495254, 138681778, 1]),
         );
         return rewriteBinaryPath(primary, [6], (menu) =>
-            rewriteAiFields(menu, 3, (item) =>
-                aiPathMatches(
-                    item,
-                    [4, 16, 461054335, 4, 169495254, 138681778, 1],
-                )
-                    ? undefined
-                    : item,
+            dropAiFields(
+                menu,
+                3,
+                [4, 16, 461054335, 4, 169495254, 138681778, 1],
             ),
         );
     });
 }
 
+function carouselParts(bytes: Uint8Array) {
+    const fields = wireFields(bytes);
+    const part = (no: number) =>
+        fields.filter((field) => field.no === no && field.wire === 2);
+    return { fields, headers: part(1), cards: part(2) };
+}
+
 function removeAiCarousel(bytes: Uint8Array) {
     return rewriteBinaryPath(bytes, [1], (carousel) => {
-        const fields = wireFields(carousel);
-        const headers = fields.filter(
-            (field) => field.no === 1 && field.wire === 2,
-        );
-        const cards = fields.filter(
-            (field) => field.no === 2 && field.wire === 2,
-        );
+        const { fields, headers, cards } = carouselParts(carousel);
         // Keep header/card indices aligned (Comments vs Ask).
         if (headers.length !== cards.length) return carousel;
         const removed = new Set<WireField>();
         cards.forEach((card, index) => {
-            if (aiPathMatches(card.data, [8, 2, 169495254, 138681778, 1])) {
+            if (aiPathMatches(card.data, AI_CARD)) {
                 removed.add(card);
                 removed.add(headers[index]);
             }
@@ -112,19 +101,11 @@ function isAiOnlyCarousel(object: ProtoNode) {
                 (field) => field.no === 1 && field.wire === 2,
             );
             if (bodies.length !== 1) return false;
-            const fields = wireFields(bodies[0].data);
-            const headers = fields.filter(
-                (field) => field.no === 1 && field.wire === 2,
-            );
-            const cards = fields.filter(
-                (field) => field.no === 2 && field.wire === 2,
-            );
+            const { headers, cards } = carouselParts(bodies[0].data);
             return (
                 cards.length > 0 &&
                 cards.length === headers.length &&
-                cards.every((card) =>
-                    aiPathMatches(card.data, [8, 2, 169495254, 138681778, 1]),
-                )
+                cards.every((card) => aiPathMatches(card.data, AI_CARD))
             );
         });
     } catch {
@@ -137,42 +118,37 @@ function removeAiElement(bytes: Uint8Array) {
         bytes,
         [153515154, 172660663, 1, 168777401, 5],
         (content) => {
-            let result = rewriteAiFields(
+            let result = rewriteFields(
                 content,
                 386137609,
                 removeAiQuickActions,
             );
             result = rewriteBinaryPath(result, [413471385, 1], (data) =>
-                rewriteAiFields(data, 2185, removeAiActionBar),
+                rewriteFields(data, 2185, removeAiActionBar),
             );
             result = rewriteBinaryPath(
                 result,
                 [389155117, 17],
                 removeAiActionBar,
             );
-            return rewriteAiFields(result, 408379376, removeAiCarousel);
+            return rewriteFields(result, 408379376, removeAiCarousel);
         },
     );
 }
 
 function removeAiSummary(bytes: Uint8Array) {
-    const result = rewriteAiFields(bytes, 45, (key) =>
-        aiPathMatches(key, [], AI_SUMMARY, true) ? undefined : key,
-    );
+    const result = dropAiFields(bytes, 45, [], AI_SUMMARY, true);
     // Remove summary updates; keep inline playback commands.
     return rewriteBinaryPath(
         result,
         [1, 19, 1, 1, 4, 424915055, 1],
         (playback) =>
-            rewriteAiFields(playback, 31, (command) =>
-                aiPathMatches(
-                    command,
-                    [1, 204158123, 194114827, 1],
-                    AI_SUMMARY,
-                    true,
-                )
-                    ? undefined
-                    : command,
+            dropAiFields(
+                playback,
+                31,
+                [1, 204158123, 194114827, 1],
+                AI_SUMMARY,
+                true,
             ),
     );
 }
@@ -244,11 +220,7 @@ function removeAi(object: ProtoNode) {
             changed =
                 rewriteUnknownField(object, 6, (bindings) =>
                     rewriteBinaryPath(bindings, [188490103], (collection) =>
-                        rewriteAiFields(collection, 1, (binding) =>
-                            aiPathMatches(binding, [1], AI_SUMMARY, true)
-                                ? undefined
-                                : binding,
-                        ),
+                        dropAiFields(collection, 1, [1], AI_SUMMARY, true),
                     ),
                 ) || changed;
     } catch (error) {

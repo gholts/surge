@@ -3,5 +3,5 @@
     "compilerOptions": {
         "noEmit": true
     },
-    "include": ["build-pages.ts"]
+    "include": ["tools/*.ts", "modules/*/build.ts"]
 }
