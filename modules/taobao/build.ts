@@ -36,7 +36,14 @@ try {
     );
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error("TypeScript compilation failed");
-    for (const name of ["response", "icon", "rate-limit", "transport"]) {
+    for (const name of [
+        "response",
+        "icon",
+        "rate-limit",
+        "transport",
+        "cart",
+        "native",
+    ]) {
         const source = fs.readFileSync(
             path.join(compiled, "src", name + ".js"),
             "utf8",

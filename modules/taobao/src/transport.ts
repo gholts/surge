@@ -1,10 +1,13 @@
 function useHttps(): void {
-    if (
-        !/^http:\/\/(?:amdc\.m\.taobao\.com|(?:\d{1,3}\.){3}\d{1,3})\/amdc\/mobileDispatch(?:\?|$)/.test(
+    const dispatch =
+        /^http:\/\/(?:amdc\.m\.taobao\.com|(?:\d{1,3}\.){3}\d{1,3})\/amdc\/mobileDispatch(?:\?|$)/.test(
             $request.url,
-        )
-    )
-        return $done({});
+        );
+    const nativeApi =
+        /\/(?:gw|h5)\/mtop\.(?:taobao\.(?:wireless\.home\.|mclaren\.|ferrari\.homepage\.|detail\.|poplayer\.)|trade\.(?:query\.?bag|update\.bag|update\.structure)\/)/i.test(
+            $request.url,
+        );
+    if (!dispatch && !nativeApi) return $done({});
     try {
         const headers = $request.headers ?? {};
         const agent = Object.entries(headers).find(
@@ -31,7 +34,8 @@ function useHttps(): void {
             output["Accept-Encoding"] = "gzip";
             return $done({ headers: output });
         }
-        if (!$response.body) return $done({});
+        if (!dispatch || typeof $response.body !== "string" || !$response.body)
+            return $done({});
         const body = $response.body.trim();
         const encoded = !body.startsWith("{");
         const data = JSON.parse(

@@ -22,6 +22,7 @@ function cleanPopups(): void {
         !/^https:\/\/poplayer\.template\.alibaba\.com\/popcdn\/2\/config\.json(?:\?|$)/.test(
             $request.url,
         ) ||
+        typeof $response.body !== "string" ||
         !$response.body
     )
         return $done({});

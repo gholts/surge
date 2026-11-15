@@ -1,6 +1,7 @@
 function skipRateLimit(): void {
     const body = $response.body;
     if (
+        typeof body !== "string" ||
         !body ||
         !/^https:\/\/g\.alicdn\.com\/bsop-static\/sufei-punish\/[\d.]+\/build\/punishpage\.min\.js(?:\?|$)/.test(
             $request.url,

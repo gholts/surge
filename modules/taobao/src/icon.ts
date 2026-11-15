@@ -1,12 +1,30 @@
 function unlockIcon(): void {
     const body = $response.body;
     if (
+        typeof body !== "string" ||
         !body ||
-        !/^https:\/\/g\.alicdn\.com\/code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/p_app-icon-setting-(?:index|mods-main-index)\.js(?:\?|$)/.test(
+        !/^https:\/\/(?:g\.alicdn\.com\/code\/npm\/@ali\/tb-vip-vip-snap-webapp\/[\d.]+\/js\/(?:main|p_app-icon-setting-(?:index|mods-main-index))\.js|pages-fast\.m\.taobao\.com\/wow\/z\/app\/tb-vip\/vip-snap-webapp\/app-icon-setting)(?:\?|$)/.test(
             $request.url,
         )
     )
         return $done({});
+
+    // Refresh both the page entry and lazy-loaded component, even when the
+    // browser has cached an earlier bundle that still contains the signup gate.
+    if (
+        /\/app-icon-setting(?:\?|$)|\/js\/main\.js(?:\?|$)/.test($request.url)
+    ) {
+        const output = body
+            .replace(
+                /((?:main|p_app-icon-setting-(?:index|mods-main-index))\.js)(["'])/g,
+                "$1?tb_clean=3$2",
+            )
+            .replace(
+                /(__webpack_require__\.u=function\([\w$]+\)\{return"js\/"\+\{[^{}]*p_app-icon-setting[^{}]*\}\[[\w$]+\]\+)"\.js"/g,
+                '$1".js?tb_clean=3"',
+            );
+        return $done(output === body ? {} : { body: output });
+    }
 
     // Patch captured UI gate; keep device checks and native setIcon.
     const gate =
