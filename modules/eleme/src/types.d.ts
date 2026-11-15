@@ -10,6 +10,6 @@ declare function $done(result: {
     response?: {
         status: number;
         headers: Record<string, string>;
-        body: Uint8Array;
+        body: string | Uint8Array;
     };
 }): void;

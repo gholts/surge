@@ -7,8 +7,7 @@ const promotionCodes = new Set([
     "home_secondFloor_guide_template",
     "suspension_template",
 ]);
-if (typeof $argument !== "undefined" && $argument === "true")
-    promotionCodes.add("miniapp_xsd_super_subsidy_new");
+const liteHome = typeof $argument !== "undefined" && $argument === "true";
 
 function isAdFlag(value: unknown): boolean {
     return value === true || value === "true" || value === 1 || value === "1";
@@ -89,8 +88,8 @@ function main(): void {
                 changed ||= data.structure.root.length !== nodes.length;
             }
 
-            const fields =
-                data?.data?.frontend_page_shop_list_recommend?.fields;
+            const feed = data?.data?.frontend_page_shop_list_recommend;
+            const fields = feed?.fields;
             if (Array.isArray(fields?.items)) {
                 const items = fields.items;
                 fields.items = items.filter(
@@ -98,6 +97,13 @@ function main(): void {
                 );
                 // Keep server pagination offsets/counts: they include filtered ads.
                 changed ||= fields.items.length !== items.length;
+            }
+            if (
+                liteHome &&
+                feed?.customized?.feedUiData?.specialEffectSwitch === true
+            ) {
+                feed.customized.feedUiData.specialEffectSwitch = false;
+                changed = true;
             }
         }
         $done(changed ? { body: JSON.stringify(value) } : {});

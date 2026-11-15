@@ -3,8 +3,32 @@ const userAgent =
         ([name]) => name.toLowerCase() === "user-agent",
     )?.[1] ?? "";
 
-// These shared Alibaba endpoints also serve other apps. Only acknowledge Ele.me.
+// Request scripting also works when the separate URL Rewrite switch is off.
 if (
+    /^https:\/\/waimai-guide\.ele\.me\/gw\/mtop\.alsc\.eleme\.bootup\.screen\.data\.get\/1\.0\/?(?:\?|$)/.test(
+        $request.url,
+    )
+) {
+    $done({
+        response: {
+            status: 200,
+            headers: {
+                "Content-Type": "application/json; charset=utf-8",
+                "Cache-Control": "no-store",
+            },
+            body: JSON.stringify({
+                api: "mtop.alsc.eleme.bootup.screen.data.get",
+                data: { code: 0, data: { fields: {} }, message: "SUCCESS" },
+                ret: ["SUCCESS::调用成功"],
+                v: "1.0",
+            }),
+        },
+    });
+    // These shared Alibaba endpoints also serve other apps. Only acknowledge Ele.me.
+} else if (
+    !/^https?:\/\/(?:s-gm\.mmstat\.com\/arms\.1\.1|wgo\.mmstat\.com\/minitrade\.1\.200\.2)(?:\?|$)/.test(
+        $request.url,
+    ) ||
     !["GET", "POST"].includes($request.method ?? "") ||
     !/(?:^|\s)eleme\/|\bAliApp\(ELMC\//i.test(userAgent)
 ) {
