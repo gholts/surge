@@ -1,5 +1,4 @@
 #!name=Ele.me AdBlock
-#!version=2026.11.15.3
 #!desc=Remove captured Ele.me splash ads, sponsored restaurants, feed banners, home promotions and automatic marketing triggers. Requires HTTPS decryption.
 #!category=gholts
 #!arguments=block_tracking:true,lite_home:false
