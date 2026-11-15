@@ -3,7 +3,8 @@
     "private": true,
     "scripts": {
         "build": "bun run --workspaces build",
-        "build:check": "bun run --workspaces build:check"
+        "build:check": "bun run --workspaces build:check",
+        "build:pages": "bun --check build-pages.ts"
     },
     "devDependencies": {
         "@types/bun": "^1.4.4",

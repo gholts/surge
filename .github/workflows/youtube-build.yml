@@ -25,6 +25,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun fmt --check
+      - run: bun check
       - run: bun run build
       - uses: actions/checkout@v7
         with:
